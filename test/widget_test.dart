@@ -20,9 +20,26 @@ void main() {
     // 로비 헤드라인
     expect(find.text('무엇을 하고 놀까요?'), findsOneWidget);
 
-    // 레지스트리에서 파생된 스도쿠 항목 (네비 탭 + 로비 카드)
+    // 레지스트리에서 파생된 항목들 (각각 네비 탭 + 로비 카드로 2번씩)
     expect(find.text('스도쿠'), findsNWidgets(2));
+    expect(find.text('블록 블라스트'), findsNWidgets(2));
     expect(find.textContaining('9×9 보드를 숫자로 채우는'), findsOneWidget);
+    expect(find.textContaining('8×8 보드에 조각을 놓아'), findsOneWidget);
+
+    // 아직 만들지 않은 게임들은 준비중 카드로 남는다
+    expect(find.text('준비 중'), findsOneWidget);
+  });
+
+  testWidgets('로비에서 블록 블라스트 카드를 누르면 해당 게임으로 이동한다',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const GameHubApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('8×8 보드에 조각을 놓아'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('점수'), findsWidgets);
+    expect(find.textContaining('최고'), findsWidgets);
   });
 
   testWidgets('로비에서 스도쿠 카드를 누르면 스도쿠 화면으로 이동한다',

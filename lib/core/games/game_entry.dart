@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../features/blockblast/presentation/block_blast_screen.dart';
 import '../../features/sudoku/presentation/sudoku_screen.dart';
 
 /// 허브에 등록된 게임 한 개의 메타데이터.
@@ -47,8 +48,12 @@ const List<GameEntry> kGameRegistry = <GameEntry>[
     description: '9×9 보드를 숫자로 채우는 논리 퍼즐',
     builder: SudokuScreen.new,
   ),
-  // 향후 추가 예정:
-  // GameEntry(id: 'tetris', title: '테트리스', icon: Icons.view_week_rounded,
-  //           description: '블록을 쌓아 줄을 지우는 클래식 퍼즐',
-  //           builder: TetrisScreen.new),
+  GameEntry(
+    id: 'blockblast',
+    title: '블록 블라스트',
+    icon: Icons.grid_view_rounded,
+    description: '8×8 보드에 조각을 놓아 행과 열을 지우는 퍼즐',
+    builder: BlockBlastScreen.new,
+  ),
+  // 향후 추가 예정: 클래식 테트리스(낙하·회전), 슈팅, 아케이드
 ];
