@@ -70,6 +70,10 @@ class BlockTray extends StatelessWidget {
       data: data,
       // 포인터 위치를 기준으로 삼아야 보드에서 착지 칸을 정확히 역산할 수 있다.
       dragAnchorStrategy: pointerDragAnchorStrategy,
+      // 드롭 대상 판정(히트 테스트)은 기본적으로 손가락 위치에서 일어난다.
+      // 조각은 손가락보다 위에 그려지므로, 하단 줄을 조준하면 손가락이 보드 밖으로
+      // 내려가 드롭이 무시된다. 판정 지점을 조각 위치로 함께 옮겨 이를 막는다.
+      feedbackOffset: blockDragLift(piece, boardCellSize),
       onDragEnd: (_) => controller.clearPreview(),
       onDraggableCanceled: (velocity, offset) => controller.clearPreview(),
       feedback: Transform.translate(

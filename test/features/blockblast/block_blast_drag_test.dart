@@ -135,4 +135,40 @@ void main() {
     expect(controller.score, 0, reason: '거부된 배치는 점수를 주지 않아야 한다');
     expect(controller.tray[0], isNotNull, reason: '조각이 트레이에 남아야 한다');
   });
+
+  testWidgets('마지막 줄(7행)에도 조각을 놓을 수 있다', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(harness(controller));
+    await tester.pumpAndSettle();
+
+    await dragTrayPieceTo(tester, piece(['X']), kBlockGridSize - 1, 3);
+
+    expect(controller.grid.isFilled(kBlockGridSize - 1, 3), isTrue,
+        reason: '마지막 줄을 조준하면 손가락이 보드 아래로 내려가지만 배치는 성공해야 한다');
+  });
+
+  testWidgets('세로로 긴 조각도 보드 하단에 놓을 수 있다', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final tall = piece(['X', 'X', 'X']);
+    final c = BlockBlastController(
+      scoreStore: MemoryScoreStore(),
+      pieceFactory: () => tall,
+    );
+    addTearDown(c.dispose);
+
+    await tester.pumpWidget(harness(c));
+    await tester.pumpAndSettle();
+
+    // 5,6,7행을 차지하도록 좌상단을 5행에 맞춘다.
+    await dragTrayPieceTo(tester, tall, kBlockGridSize - 3, 2);
+
+    expect(c.grid.isFilled(kBlockGridSize - 3, 2), isTrue);
+    expect(c.grid.isFilled(kBlockGridSize - 1, 2), isTrue);
+  });
 }
