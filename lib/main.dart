@@ -6,6 +6,11 @@ void main() {
   runApp(const SudokuApp());
 }
 
+/// 보드 크기 관련 공용 상수 (9x9 보드, 3x3 박스)
+const int kBoardSize = 9;
+const int kBoxSize = 3;
+const int kTotalCells = kBoardSize * kBoardSize;
+
 /// 난이도 정보 및 채워진 숫자(힌트) 개수 정의
 class DifficultyInfo {
   final int level;
@@ -18,7 +23,7 @@ class DifficultyInfo {
     required this.filledCells,
   });
 
-  int get emptyCells => 81 - filledCells;
+  int get emptyCells => kTotalCells - filledCells;
 }
 
 /// 레벨 1 ~ 레벨 10 난이도 정의
@@ -35,21 +40,65 @@ const List<DifficultyInfo> kDifficultyLevels = [
   DifficultyInfo(level: 10, title: '마스터', filledCells: 22),
 ];
 
+/// 레벨 값으로 난이도 정보를 조회한다.
+/// 목록에 없는 값이 들어와도 예외를 던지지 않고 레벨 1로 안전하게 대체한다.
+DifficultyInfo difficultyForLevel(int level) {
+  return kDifficultyLevels.firstWhere(
+    (d) => d.level == level,
+    orElse: () => kDifficultyLevels[0],
+  );
+}
+
+/// 9x9 보드를 깊은 복사한다 (내부 리스트까지 새로 생성).
+List<List<int>> _copyBoard(List<List<int>> source) {
+  return List.generate(kBoardSize, (r) => List.from(source[r]));
+}
+
+/// (row, col) 칸에 값(value)을 두었을 때 같은 행/열/3x3 박스에서 충돌이 있는지 검사한다.
+/// [ignoreSelf]가 true이면 (row, col) 자기 자신은 비교 대상에서 제외한다.
+/// 스도쿠 생성기의 배치 검증과 화면의 규칙 충돌 검사가 이 함수 하나를 공유한다.
+bool _hasConflictAt(
+  List<List<int>> grid,
+  int row,
+  int col,
+  int value, {
+  bool ignoreSelf = false,
+}) {
+  if (value == 0) return false;
+
+  for (int i = 0; i < kBoardSize; i++) {
+    if (!(ignoreSelf && i == col) && grid[row][i] == value) return true;
+    if (!(ignoreSelf && i == row) && grid[i][col] == value) return true;
+  }
+
+  int boxRow = (row ~/ kBoxSize) * kBoxSize;
+  int boxCol = (col ~/ kBoxSize) * kBoxSize;
+  for (int r = 0; r < kBoxSize; r++) {
+    for (int c = 0; c < kBoxSize; c++) {
+      int currR = boxRow + r;
+      int currC = boxCol + c;
+      if (!(ignoreSelf && currR == row && currC == col) &&
+          grid[currR][currC] == value) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 /// 스도쿠 생성기
 class SudokuGenerator {
   static SudokuPuzzle generate(int level) {
-    final diff = kDifficultyLevels.firstWhere(
-      (d) => d.level == level,
-      orElse: () => kDifficultyLevels[0],
-    );
+    final diff = difficultyForLevel(level);
     final targetFilled = diff.filledCells;
     final random = Random();
 
     // 1. 9x9 빈 보드 생성
-    List<List<int>> fullBoard = List.generate(9, (_) => List.filled(9, 0));
+    List<List<int>> fullBoard =
+        List.generate(kBoardSize, (_) => List.filled(kBoardSize, 0));
 
     // 2. 대각선 3개 3x3 박스 독립 채우기 (0,0), (3,3), (6,6)
-    for (int i = 0; i < 9; i += 3) {
+    for (int i = 0; i < kBoardSize; i += kBoxSize) {
       _fillBox(fullBoard, i, i, random);
     }
 
@@ -57,15 +106,15 @@ class SudokuGenerator {
     _solve(fullBoard, random);
 
     // 4. 정답 보드 복사
-    List<List<int>> solution = List.generate(9, (r) => List.from(fullBoard[r]));
+    List<List<int>> solution = _copyBoard(fullBoard);
 
     // 5. 난이도별 채워질 칸 수에 맞춰 빈칸 생성
-    List<List<int>> puzzle = List.generate(9, (r) => List.from(fullBoard[r]));
-    int cellsToRemove = 81 - targetFilled;
+    List<List<int>> puzzle = _copyBoard(fullBoard);
+    int cellsToRemove = kTotalCells - targetFilled;
 
     List<Point<int>> positions = [];
-    for (int r = 0; r < 9; r++) {
-      for (int c = 0; c < 9; c++) {
+    for (int r = 0; r < kBoardSize; r++) {
+      for (int c = 0; c < kBoardSize; c++) {
         positions.add(Point(r, c));
       }
     }
@@ -82,36 +131,30 @@ class SudokuGenerator {
     );
   }
 
-  static void _fillBox(List<List<int>> grid, int startRow, int startCol, Random random) {
-    List<int> numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9]..shuffle(random);
+  static List<int> _shuffledDigits(Random random) {
+    return List.generate(kBoardSize, (i) => i + 1)..shuffle(random);
+  }
+
+  static void _fillBox(
+      List<List<int>> grid, int startRow, int startCol, Random random) {
+    List<int> numbers = _shuffledDigits(random);
     int idx = 0;
-    for (int r = 0; r < 3; r++) {
-      for (int c = 0; c < 3; c++) {
+    for (int r = 0; r < kBoxSize; r++) {
+      for (int c = 0; c < kBoxSize; c++) {
         grid[startRow + r][startCol + c] = numbers[idx++];
       }
     }
   }
 
   static bool _isValid(List<List<int>> grid, int row, int col, int num) {
-    for (int i = 0; i < 9; i++) {
-      if (grid[row][i] == num) return false;
-      if (grid[i][col] == num) return false;
-    }
-    int boxRow = (row ~/ 3) * 3;
-    int boxCol = (col ~/ 3) * 3;
-    for (int r = 0; r < 3; r++) {
-      for (int c = 0; c < 3; c++) {
-        if (grid[boxRow + r][boxCol + c] == num) return false;
-      }
-    }
-    return true;
+    return !_hasConflictAt(grid, row, col, num);
   }
 
   static bool _solve(List<List<int>> grid, Random random) {
-    for (int r = 0; r < 9; r++) {
-      for (int c = 0; c < 9; c++) {
+    for (int r = 0; r < kBoardSize; r++) {
+      for (int c = 0; c < kBoardSize; c++) {
         if (grid[r][c] == 0) {
-          List<int> numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9]..shuffle(random);
+          List<int> numbers = _shuffledDigits(random);
           for (int num in numbers) {
             if (_isValid(grid, r, c, num)) {
               grid[r][c] = num;
@@ -171,12 +214,34 @@ class _SudokuScreenState extends State<SudokuScreen> {
   late List<List<int>> initialBoard;
   late List<List<int>> solution;
 
-  // 현재 선택된 칸의 행(row)과 열(col)
-  int selectedRow = -1;
-  int selectedCol = -1;
+  // 현재 선택된 칸. 선택된 칸이 없으면 null.
+  ({int row, int col})? selectedCell;
 
-  // 게임 완료 여부
+  // 게임 완료 여부 (완료 다이얼로그 중복 표시 방지 가드로도 사용)
   bool isCompleted = false;
+
+  // 숫자키(숫자패드 포함) → 입력할 숫자 매핑. 코드 중복 없이 한 번에 조회한다.
+  // LogicalKeyboardKey는 커스텀 ==/hashCode를 가지고 있어 const map의 키로 쓸 수 없으므로 static final로 선언한다.
+  static final Map<LogicalKeyboardKey, int> _digitKeys = {
+    LogicalKeyboardKey.digit1: 1,
+    LogicalKeyboardKey.numpad1: 1,
+    LogicalKeyboardKey.digit2: 2,
+    LogicalKeyboardKey.numpad2: 2,
+    LogicalKeyboardKey.digit3: 3,
+    LogicalKeyboardKey.numpad3: 3,
+    LogicalKeyboardKey.digit4: 4,
+    LogicalKeyboardKey.numpad4: 4,
+    LogicalKeyboardKey.digit5: 5,
+    LogicalKeyboardKey.numpad5: 5,
+    LogicalKeyboardKey.digit6: 6,
+    LogicalKeyboardKey.numpad6: 6,
+    LogicalKeyboardKey.digit7: 7,
+    LogicalKeyboardKey.numpad7: 7,
+    LogicalKeyboardKey.digit8: 8,
+    LogicalKeyboardKey.numpad8: 8,
+    LogicalKeyboardKey.digit9: 9,
+    LogicalKeyboardKey.numpad9: 9,
+  };
 
   @override
   void initState() {
@@ -188,12 +253,13 @@ class _SudokuScreenState extends State<SudokuScreen> {
   void _startNewGame(int level) {
     final puzzle = SudokuGenerator.generate(level);
     setState(() {
-      currentLevel = level;
-      initialBoard = List.generate(9, (r) => List.from(puzzle.initialBoard[r]));
-      board = List.generate(9, (r) => List.from(puzzle.initialBoard[r]));
+      // generate()는 존재하지 않는 레벨이 들어오면 레벨 1로 안전하게 대체하므로,
+      // currentLevel도 원래 파라미터가 아니라 실제로 생성된 난이도 값을 따라간다.
+      currentLevel = puzzle.levelInfo.level;
+      initialBoard = _copyBoard(puzzle.initialBoard);
+      board = _copyBoard(initialBoard);
       solution = puzzle.solution;
-      selectedRow = -1;
-      selectedCol = -1;
+      selectedCell = null;
       isCompleted = false;
     });
   }
@@ -201,33 +267,39 @@ class _SudokuScreenState extends State<SudokuScreen> {
   // 현재 퍼즐 초기 상태로 리셋
   void _resetCurrentGame() {
     setState(() {
-      board = List.generate(9, (r) => List.from(initialBoard[r]));
-      selectedRow = -1;
-      selectedCol = -1;
+      board = _copyBoard(initialBoard);
+      selectedCell = null;
       isCompleted = false;
     });
   }
 
   // 숫자 입력 함수
   void _inputNumber(int number) {
-    if (selectedRow != -1 && selectedCol != -1) {
-      // 초기 힌트 칸은 수정 불가
-      if (initialBoard[selectedRow][selectedCol] != 0) {
-        return;
-      }
-      setState(() {
-        board[selectedRow][selectedCol] = number;
-      });
+    final cell = selectedCell;
+    if (cell == null) return;
 
-      _checkGameCompletion();
+    // 초기 힌트 칸은 수정 불가
+    if (initialBoard[cell.row][cell.col] != 0) {
+      return;
     }
+    setState(() {
+      board[cell.row][cell.col] = number;
+    });
+
+    _checkGameCompletion();
   }
 
   // 게임 완성 여부 검사
+  //
+  // 생성기가 만드는 퍼즐은 유일해(unique solution)를 보장하지 않으므로,
+  // 저장된 solution과의 셀 단위 일치가 아니라 "빈 칸이 없고 규칙 충돌이 없는지"로 완성을 판정한다.
+  // 이렇게 하면 플레이어가 생성기와 다른, 그러나 스도쿠 규칙상 유효한 정답을 채워도 정상적으로 인정된다.
   void _checkGameCompletion() {
-    for (int r = 0; r < 9; r++) {
-      for (int c = 0; c < 9; c++) {
-        if (board[r][c] == 0 || board[r][c] != solution[r][c]) {
+    if (isCompleted) return; // 이미 완료 처리된 게임에서는 다이얼로그를 다시 띄우지 않는다.
+
+    for (int r = 0; r < kBoardSize; r++) {
+      for (int c = 0; c < kBoardSize; c++) {
+        if (board[r][c] == 0 || _hasConflict(r, c)) {
           return;
         }
       }
@@ -241,6 +313,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
   }
 
   void _showCompletionDialog() {
+    final info = difficultyForLevel(currentLevel);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -254,7 +327,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
           ],
         ),
         content: Text(
-          '레벨 $currentLevel (${kDifficultyLevels[currentLevel - 1].title}) 스도쿠를 성공적으로 완성했습니다!',
+          '레벨 $currentLevel (${info.title}) 스도쿠를 성공적으로 완성했습니다!',
           style: const TextStyle(fontSize: 15),
         ),
         actions: [
@@ -282,59 +355,36 @@ class _SudokuScreenState extends State<SudokuScreen> {
   // 방향키로 선택 이동 함수
   void _moveSelection(int dRow, int dCol) {
     setState(() {
-      if (selectedRow == -1 || selectedCol == -1) {
-        selectedRow = 0;
-        selectedCol = 0;
+      final cell = selectedCell;
+      if (cell == null) {
+        selectedCell = (row: 0, col: 0);
       } else {
-        selectedRow = (selectedRow + dRow).clamp(0, 8);
-        selectedCol = (selectedCol + dCol).clamp(0, 8);
+        selectedCell = (
+          row: (cell.row + dRow).clamp(0, kBoardSize - 1),
+          col: (cell.col + dCol).clamp(0, kBoardSize - 1),
+        );
       }
     });
   }
 
   // 규칙 충돌 검사 (행, 열, 박스 내 중복 여부)
   bool _hasConflict(int row, int col) {
-    int val = board[row][col];
-    if (val == 0) return false;
-
-    // 행 검사
-    for (int c = 0; c < 9; c++) {
-      if (c != col && board[row][c] == val) return true;
-    }
-    // 열 검사
-    for (int r = 0; r < 9; r++) {
-      if (r != row && board[r][col] == val) return true;
-    }
-    // 3x3 박스 검사
-    int boxRow = (row ~/ 3) * 3;
-    int boxCol = (col ~/ 3) * 3;
-    for (int r = 0; r < 3; r++) {
-      for (int c = 0; c < 3; c++) {
-        int currR = boxRow + r;
-        int currC = boxCol + c;
-        if ((currR != row || currC != col) && board[currR][currC] == val) {
-          return true;
-        }
-      }
-    }
-    return false;
+    return _hasConflictAt(board, row, col, board[row][col], ignoreSelf: true);
   }
 
   // 키보드 이벤트 처리
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is KeyDownEvent) {
+    // KeyDownEvent(최초 입력)뿐 아니라 KeyRepeatEvent(길게 눌러 반복 입력)도 처리해야
+    // 키를 누르고 있을 때 숫자 입력/이동이 계속 반복된다.
+    if (event is KeyDownEvent || event is KeyRepeatEvent) {
       final key = event.logicalKey;
 
       // 1 ~ 9 숫자키 (숫자패드 포함)
-      if (key == LogicalKeyboardKey.digit1 || key == LogicalKeyboardKey.numpad1) { _inputNumber(1); return KeyEventResult.handled; }
-      if (key == LogicalKeyboardKey.digit2 || key == LogicalKeyboardKey.numpad2) { _inputNumber(2); return KeyEventResult.handled; }
-      if (key == LogicalKeyboardKey.digit3 || key == LogicalKeyboardKey.numpad3) { _inputNumber(3); return KeyEventResult.handled; }
-      if (key == LogicalKeyboardKey.digit4 || key == LogicalKeyboardKey.numpad4) { _inputNumber(4); return KeyEventResult.handled; }
-      if (key == LogicalKeyboardKey.digit5 || key == LogicalKeyboardKey.numpad5) { _inputNumber(5); return KeyEventResult.handled; }
-      if (key == LogicalKeyboardKey.digit6 || key == LogicalKeyboardKey.numpad6) { _inputNumber(6); return KeyEventResult.handled; }
-      if (key == LogicalKeyboardKey.digit7 || key == LogicalKeyboardKey.numpad7) { _inputNumber(7); return KeyEventResult.handled; }
-      if (key == LogicalKeyboardKey.digit8 || key == LogicalKeyboardKey.numpad8) { _inputNumber(8); return KeyEventResult.handled; }
-      if (key == LogicalKeyboardKey.digit9 || key == LogicalKeyboardKey.numpad9) { _inputNumber(9); return KeyEventResult.handled; }
+      final digit = _digitKeys[key];
+      if (digit != null) {
+        _inputNumber(digit);
+        return KeyEventResult.handled;
+      }
 
       // 지우기 (Backspace, Delete, 숫자 0)
       if (key == LogicalKeyboardKey.backspace ||
@@ -346,32 +396,44 @@ class _SudokuScreenState extends State<SudokuScreen> {
       }
 
       // 방향키 이동 (↑, ↓, ←, →)
-      if (key == LogicalKeyboardKey.arrowUp) { _moveSelection(-1, 0); return KeyEventResult.handled; }
-      if (key == LogicalKeyboardKey.arrowDown) { _moveSelection(1, 0); return KeyEventResult.handled; }
-      if (key == LogicalKeyboardKey.arrowLeft) { _moveSelection(0, -1); return KeyEventResult.handled; }
-      if (key == LogicalKeyboardKey.arrowRight) { _moveSelection(0, 1); return KeyEventResult.handled; }
+      if (key == LogicalKeyboardKey.arrowUp) {
+        _moveSelection(-1, 0);
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.arrowDown) {
+        _moveSelection(1, 0);
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.arrowLeft) {
+        _moveSelection(0, -1);
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.arrowRight) {
+        _moveSelection(0, 1);
+        return KeyEventResult.handled;
+      }
     }
     return KeyEventResult.ignored;
   }
 
   // 상단 난이도 설정 패널 위젯
-  Widget _buildTopDifficultyPanel() {
-    final currentInfo = kDifficultyLevels.firstWhere((d) => d.level == currentLevel);
+  Widget _buildTopDifficultyPanel(ColorScheme colorScheme) {
+    final currentInfo = difficultyForLevel(currentLevel);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.indigo.withValues(alpha: 0.08),
+            color: colorScheme.primary.withValues(alpha: 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
-        border: Border.all(color: Colors.indigo.shade100, width: 1.2),
+        border: Border.all(color: colorScheme.primaryContainer, width: 1.2),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -383,10 +445,11 @@ class _SudokuScreenState extends State<SudokuScreen> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Colors.indigo.shade50,
+                  color: colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.tune_rounded, size: 20, color: Colors.indigo.shade700),
+                child: Icon(Icons.tune_rounded,
+                    size: 20, color: colorScheme.onPrimaryContainer),
               ),
               const SizedBox(width: 8),
               // 난이도 선택 드롭다운
@@ -399,7 +462,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Colors.indigo.shade900,
+                      color: colorScheme.onSurface,
                     ),
                     items: kDifficultyLevels.map((info) {
                       return DropdownMenuItem<int>(
@@ -423,8 +486,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
               IconButton.filledTonal(
                 tooltip: '새 게임 생성',
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.indigo.shade50,
-                  foregroundColor: Colors.indigo.shade800,
+                  backgroundColor: colorScheme.primaryContainer,
+                  foregroundColor: colorScheme.onPrimaryContainer,
                   padding: const EdgeInsets.all(8),
                 ),
                 icon: const Icon(Icons.refresh_rounded, size: 20),
@@ -435,8 +498,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
               IconButton.filledTonal(
                 tooltip: '처음 상태로 초기화',
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.orange.shade50,
-                  foregroundColor: Colors.orange.shade800,
+                  backgroundColor: colorScheme.tertiaryContainer,
+                  foregroundColor: colorScheme.onTertiaryContainer,
                   padding: const EdgeInsets.all(8),
                 ),
                 icon: const Icon(Icons.restart_alt_rounded, size: 20),
@@ -460,13 +523,17 @@ class _SudokuScreenState extends State<SudokuScreen> {
                   labelStyle: TextStyle(
                     fontSize: 11,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? Colors.white : Colors.indigo.shade900,
+                    color: isSelected
+                        ? colorScheme.onPrimary
+                        : colorScheme.onSurface,
                   ),
                   selected: isSelected,
-                  selectedColor: Colors.indigo.shade600,
-                  backgroundColor: Colors.grey.shade100,
+                  selectedColor: colorScheme.primary,
+                  backgroundColor: colorScheme.surfaceContainerHighest,
                   side: BorderSide(
-                    color: isSelected ? Colors.indigo.shade600 : Colors.grey.shade300,
+                    color: isSelected
+                        ? colorScheme.primary
+                        : colorScheme.outlineVariant,
                     width: 1,
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
@@ -490,14 +557,14 @@ class _SudokuScreenState extends State<SudokuScreen> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: Colors.indigo.shade700,
+                  color: colorScheme.primary,
                 ),
               ),
               Text(
                 '남은 빈칸: ${currentInfo.emptyCells}개',
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey.shade600,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -509,26 +576,31 @@ class _SudokuScreenState extends State<SudokuScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final screenSize = MediaQuery.of(context).size;
-    final boardSize = min(screenSize.width * 0.9, min(screenSize.height * 0.52, 450.0));
-    final selectedVal = (selectedRow != -1 && selectedCol != -1) ? board[selectedRow][selectedCol] : 0;
+    final boardSize =
+        min(screenSize.width * 0.9, min(screenSize.height * 0.52, 450.0));
+    final selection = selectedCell;
+    final selectedVal =
+        selection != null ? board[selection.row][selection.col] : 0;
 
     return Focus(
       autofocus: true,
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F8FC),
+        backgroundColor: colorScheme.surfaceContainerLowest,
         appBar: AppBar(
-          title: const Text('Sudoku Game', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text('Sudoku Game',
+              style: TextStyle(fontWeight: FontWeight.bold)),
           centerTitle: true,
-          backgroundColor: Colors.indigo.shade100,
+          backgroundColor: colorScheme.primaryContainer,
           elevation: 0,
         ),
         body: SafeArea(
           child: Column(
             children: [
               // 1. 상단 난이도 설정 패널
-              _buildTopDifficultyPanel(),
+              _buildTopDifficultyPanel(colorScheme),
 
               Expanded(
                 child: Center(
@@ -542,56 +614,61 @@ class _SudokuScreenState extends State<SudokuScreen> {
                           height: boardSize,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: colorScheme.surface,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.08),
+                                  color: colorScheme.shadow.withValues(alpha: 0.08),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
                               ],
-                              border: Border.all(color: Colors.black, width: 2.5),
+                              border: Border.all(color: colorScheme.outline, width: 2.5),
                             ),
                             child: GridView.builder(
                               physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 9,
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: kBoardSize,
                               ),
-                              itemCount: 81,
+                              itemCount: kTotalCells,
                               itemBuilder: (context, index) {
-                                int row = index ~/ 9;
-                                int col = index % 9;
-                                bool isSelected = (row == selectedRow && col == selectedCol);
+                                int row = index ~/ kBoardSize;
+                                int col = index % kBoardSize;
+                                bool isSelected = selection != null &&
+                                    row == selection.row &&
+                                    col == selection.col;
                                 bool isInitial = initialBoard[row][col] != 0;
                                 int val = board[row][col];
                                 bool hasConflict = _hasConflict(row, col);
 
                                 // 관련 영역 하이라이트 (같은 행, 같은 열, 같은 3x3 박스)
-                                bool isRelated = (selectedRow != -1 && selectedCol != -1) &&
-                                    (row == selectedRow ||
-                                        col == selectedCol ||
-                                        (row ~/ 3 == selectedRow ~/ 3 && col ~/ 3 == selectedCol ~/ 3));
+                                bool isRelated = selection != null &&
+                                    (row == selection.row ||
+                                        col == selection.col ||
+                                        (row ~/ kBoxSize == selection.row ~/ kBoxSize &&
+                                            col ~/ kBoxSize == selection.col ~/ kBoxSize));
                                 // 같은 숫자 하이라이트
-                                bool isSameNumber = (val != 0 && selectedVal != 0 && val == selectedVal);
+                                bool isSameNumber =
+                                    (val != 0 && selectedVal != 0 && val == selectedVal);
 
-                                Color cellBgColor = Colors.white;
+                                Color cellBgColor = colorScheme.surface;
                                 if (isSelected) {
-                                  cellBgColor = Colors.indigo.shade200;
+                                  cellBgColor = colorScheme.primary.withValues(alpha: 0.4);
                                 } else if (hasConflict && !isInitial) {
-                                  cellBgColor = Colors.red.shade100;
+                                  cellBgColor = colorScheme.errorContainer;
                                 } else if (isSameNumber) {
-                                  cellBgColor = Colors.indigo.shade100;
+                                  cellBgColor = colorScheme.primaryContainer;
                                 } else if (isRelated) {
-                                  cellBgColor = const Color(0xFFEDF2FF);
+                                  cellBgColor =
+                                      colorScheme.primaryContainer.withValues(alpha: 0.4);
                                 } else if (isInitial) {
-                                  cellBgColor = const Color(0xFFF9FAFB);
+                                  cellBgColor = colorScheme.surfaceContainerLow;
                                 }
 
                                 return GestureDetector(
                                   onTap: () {
                                     setState(() {
-                                      selectedRow = row;
-                                      selectedCol = col;
+                                      selectedCell = (row: row, col: col);
                                     });
                                   },
                                   child: Container(
@@ -599,20 +676,28 @@ class _SudokuScreenState extends State<SudokuScreen> {
                                       color: cellBgColor,
                                       border: Border(
                                         top: BorderSide(
-                                          width: row % 3 == 0 ? 2.0 : 0.5,
-                                          color: row % 3 == 0 ? Colors.black : Colors.grey.shade400,
+                                          width: row % kBoxSize == 0 ? 2.0 : 0.5,
+                                          color: row % kBoxSize == 0
+                                              ? colorScheme.outline
+                                              : colorScheme.outlineVariant,
                                         ),
                                         left: BorderSide(
-                                          width: col % 3 == 0 ? 2.0 : 0.5,
-                                          color: col % 3 == 0 ? Colors.black : Colors.grey.shade400,
+                                          width: col % kBoxSize == 0 ? 2.0 : 0.5,
+                                          color: col % kBoxSize == 0
+                                              ? colorScheme.outline
+                                              : colorScheme.outlineVariant,
                                         ),
                                         right: BorderSide(
-                                          width: col == 8 ? 2.0 : 0.5,
-                                          color: col == 8 ? Colors.black : Colors.grey.shade400,
+                                          width: col == kBoardSize - 1 ? 2.0 : 0.5,
+                                          color: col == kBoardSize - 1
+                                              ? colorScheme.outline
+                                              : colorScheme.outlineVariant,
                                         ),
                                         bottom: BorderSide(
-                                          width: row == 8 ? 2.0 : 0.5,
-                                          color: row == 8 ? Colors.black : Colors.grey.shade400,
+                                          width: row == kBoardSize - 1 ? 2.0 : 0.5,
+                                          color: row == kBoardSize - 1
+                                              ? colorScheme.outline
+                                              : colorScheme.outlineVariant,
                                         ),
                                       ),
                                     ),
@@ -621,10 +706,13 @@ class _SudokuScreenState extends State<SudokuScreen> {
                                         val == 0 ? '' : '$val',
                                         style: TextStyle(
                                           fontSize: boardSize / 20,
-                                          fontWeight: isInitial ? FontWeight.w900 : FontWeight.bold,
+                                          fontWeight:
+                                              isInitial ? FontWeight.w900 : FontWeight.bold,
                                           color: isInitial
-                                              ? Colors.black87
-                                              : (hasConflict ? Colors.red.shade700 : Colors.indigo.shade800),
+                                              ? colorScheme.onSurface
+                                              : (hasConflict
+                                                  ? colorScheme.error
+                                                  : colorScheme.primary),
                                         ),
                                       ),
                                     ),
@@ -645,7 +733,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
                             spacing: 6,
                             runSpacing: 6,
                             children: [
-                              ...List.generate(9, (index) {
+                              ...List.generate(kBoardSize, (index) {
                                 int number = index + 1;
                                 return SizedBox(
                                   width: 40,
@@ -653,18 +741,19 @@ class _SudokuScreenState extends State<SudokuScreen> {
                                   child: ElevatedButton(
                                     style: ElevatedButton.styleFrom(
                                       padding: EdgeInsets.zero,
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: Colors.indigo.shade900,
+                                      backgroundColor: colorScheme.surface,
+                                      foregroundColor: colorScheme.onSurface,
                                       elevation: 1.5,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
-                                        side: BorderSide(color: Colors.indigo.shade100),
+                                        side: BorderSide(color: colorScheme.outlineVariant),
                                       ),
                                     ),
                                     onPressed: () => _inputNumber(number),
                                     child: Text(
                                       '$number',
-                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                      style:
+                                          const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                                     ),
                                   ),
                                 );
@@ -674,8 +763,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
                                 height: 48,
                                 child: IconButton.filled(
                                   style: IconButton.styleFrom(
-                                    backgroundColor: Colors.red.shade50,
-                                    foregroundColor: Colors.red.shade700,
+                                    backgroundColor: colorScheme.errorContainer,
+                                    foregroundColor: colorScheme.onErrorContainer,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8),
                                     ),
