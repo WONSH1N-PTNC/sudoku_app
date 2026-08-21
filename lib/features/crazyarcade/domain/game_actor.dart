@@ -59,6 +59,11 @@ class Actor {
 
   ActorState state = ActorState.alive;
 
+  /// 마지막으로 향한 방향. 캐릭터가 어디를 보고 있는지 그리는 데 쓴다.
+  /// 멈춰 있어도 마지막 방향을 유지해야 자연스럽다.
+  double facingX = 0;
+  double facingY = 1;
+
   /// 물방울에 갇힌 뒤 남은 시간
   double bubbleTimer = 0;
 

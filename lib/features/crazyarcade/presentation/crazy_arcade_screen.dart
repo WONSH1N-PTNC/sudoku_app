@@ -120,7 +120,6 @@ class _CrazyArcadeScreenState extends State<CrazyArcadeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final showPad =
         MediaQuery.of(context).size.shortestSide < kVirtualPadBreakpoint;
 
@@ -140,7 +139,6 @@ class _CrazyArcadeScreenState extends State<CrazyArcadeScreen>
               child: CustomPaint(
                 painter: GamePainter(
                   controller: _controller,
-                  colorScheme: colorScheme,
                   repaint: _controller.frames,
                 ),
               ),

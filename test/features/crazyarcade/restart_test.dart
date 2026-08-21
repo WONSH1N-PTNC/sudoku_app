@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sudoku_app/features/crazyarcade/controller/crazy_arcade_controller.dart';
 import 'package:sudoku_app/features/crazyarcade/presentation/game_painter.dart';
@@ -29,7 +28,6 @@ void main() {
 
     final painter = GamePainter(
       controller: controller,
-      colorScheme: const ColorScheme.light(),
       repaint: controller.frames,
     );
     final before = controller.world;

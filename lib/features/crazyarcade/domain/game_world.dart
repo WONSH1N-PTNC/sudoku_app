@@ -231,6 +231,11 @@ class GameWorld {
       final intent = (intents[actor.id] ?? PlayerIntent.idle).normalized();
       if (!intent.isMoving) continue;
 
+      // 이동을 시도한 방향을 바라본다. 벽에 막혀 실제로 못 움직여도
+      // 바라보는 방향은 바뀌는 편이 조작감에 맞다.
+      actor.facingX = intent.moveX;
+      actor.facingY = intent.moveY;
+
       final step = actor.speed * dt;
 
       if (intent.moveX != 0) {

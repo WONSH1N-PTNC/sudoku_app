@@ -96,5 +96,30 @@ void main() {
 
       expect(actor.x, startX);
     });
+
+    test('이동한 방향을 바라본다', () {
+      final world = worldWith(spawns: [(col: 3, row: 3, team: 0)]);
+      final actor = world.actors.first;
+
+      advance(world, 0.2, intents: {0: const PlayerIntent(moveX: 1)});
+      expect(actor.facingX, 1);
+      expect(actor.facingY, 0);
+
+      advance(world, 0.2, intents: {0: const PlayerIntent(moveY: -1)});
+      expect(actor.facingY, -1);
+
+      // 입력을 놓아도 마지막 방향을 유지한다.
+      advance(world, 0.2);
+      expect(actor.facingY, -1);
+    });
+
+    test('벽에 막혀도 바라보는 방향은 바뀐다', () {
+      final world = worldWith(spawns: [(col: 1, row: 1, team: 0)]);
+      final actor = world.actors.first;
+
+      advance(world, 0.3, intents: {0: const PlayerIntent(moveX: -1)});
+
+      expect(actor.facingX, -1, reason: '벽을 향해도 그쪽을 봐야 한다');
+    });
   });
 }
