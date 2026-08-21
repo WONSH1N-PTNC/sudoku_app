@@ -9,7 +9,6 @@ import '../domain/game_world.dart';
 import '../domain/item.dart';
 import '../domain/tile_map.dart';
 import 'sprites/sprite_library.dart';
-import 'sprites/sprite_sheet.dart';
 
 /// 게임 화면 전용 팔레트.
 ///
@@ -426,9 +425,10 @@ class GamePainter extends CustomPainter {
       final color = kTeamColors[actor.teamId % kTeamColors.length];
 
       // 발밑 그림자는 들썩임과 무관하게 바닥에 붙어 있어야 한다.
+      final feet = Offset(actor.x * cell, actor.y * cell + tileRadius * 0.82);
       canvas.drawOval(
         Rect.fromCenter(
-          center: Offset(actor.x * cell, actor.y * cell + tileRadius * 0.82),
+          center: feet,
           width: tileRadius * 1.5,
           height: tileRadius * 0.45,
         ),
@@ -437,6 +437,23 @@ class GamePainter extends CustomPainter {
 
       final bodyRadius = actor.isBubbled ? tileRadius * 0.6 : tileRadius;
       final sheet = sprites[GameSprite.character];
+
+      if (sheet != null) {
+        // 모두 같은 그림을 쓰므로 발밑 고리 색으로 누가 누구인지 구분한다.
+        // (기본 아트는 몸통 색이 팀을 나타내므로 고리가 필요 없다)
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: feet,
+            width: tileRadius * 1.5,
+            height: tileRadius * 0.45,
+          ),
+          Paint()
+            ..color = color
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = cell * 0.07,
+        );
+      }
+
       if (sheet != null) {
         sheet.draw(
           canvas,
@@ -446,7 +463,7 @@ class GamePainter extends CustomPainter {
             height: bodyRadius * 2.1,
           ),
           column: sheet.frameAt(world.elapsed + actor.id),
-          row: directionRow(actor.facingX, actor.facingY),
+          row: sheet.rowFor(actor.facingX, actor.facingY),
         );
       } else {
         _paintCharacter(canvas, center, bodyRadius, color, actor, cell);

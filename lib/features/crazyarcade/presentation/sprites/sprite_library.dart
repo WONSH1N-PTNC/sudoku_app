@@ -25,6 +25,7 @@ class SpriteDefinition {
     this.columns = 1,
     this.rows = 1,
     this.fps = 8,
+    this.directionOrder = kDefaultDirectionOrder,
   });
 
   final String path;
@@ -36,6 +37,10 @@ class SpriteDefinition {
   final int rows;
 
   final double fps;
+
+  /// 캐릭터 시트에서 세로 줄이 뜻하는 방향의 순서.
+  /// 시트마다 다르므로 파일에 맞춰 지정한다.
+  final List<Facing> directionOrder;
 }
 
 /// 어떤 파일을 어떤 격자로 읽을지 적어 둔 목록.
@@ -50,8 +55,14 @@ const Map<GameSprite, SpriteDefinition> kSpriteManifest = {
       SpriteDefinition(path: 'assets/images/crazyarcade/balloon.png', fps: 6),
   GameSprite.explosion:
       SpriteDefinition(path: 'assets/images/crazyarcade/explosion.png', fps: 12),
-  GameSprite.character:
-      SpriteDefinition(path: 'assets/images/crazyarcade/character.png', fps: 8),
+  // 가로 8프레임 걷기, 세로 4줄이 방향(아래 · 위 · 오른쪽 · 왼쪽)
+  GameSprite.character: SpriteDefinition(
+    path: 'assets/images/crazyarcade/character.png',
+    columns: 8,
+    rows: 4,
+    fps: 10,
+    directionOrder: [Facing.down, Facing.up, Facing.right, Facing.left],
+  ),
   GameSprite.itemPower:
       SpriteDefinition(path: 'assets/images/crazyarcade/item_power.png'),
   GameSprite.itemCount:
@@ -102,6 +113,7 @@ class SpriteLibrary {
           columns: definition.columns,
           rows: definition.rows,
           fps: definition.fps,
+          directionOrder: definition.directionOrder,
         );
       } catch (_) {
         // 파일이 없거나 읽을 수 없는 형식이면 그냥 기본 아트를 쓴다.

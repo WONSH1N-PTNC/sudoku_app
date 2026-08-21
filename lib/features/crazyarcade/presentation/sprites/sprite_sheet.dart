@@ -12,12 +12,20 @@ class SpriteSheet {
     this.columns = 1,
     this.rows = 1,
     this.fps = 8,
+    this.directionOrder = kDefaultDirectionOrder,
   })  : assert(columns > 0),
         assert(rows > 0);
 
   final ui.Image image;
   final int columns;
   final int rows;
+
+  /// 세로 줄이 어떤 방향을 뜻하는지의 순서. 시트마다 다르다.
+  final List<Facing> directionOrder;
+
+  /// 바라보는 방향에 해당하는 줄 번호
+  int rowFor(double facingX, double facingY) =>
+      directionRow(facingX, facingY, order: directionOrder);
 
   /// 초당 프레임 수. columns가 1이면 의미가 없다.
   final double fps;
@@ -70,13 +78,34 @@ class SpriteSheet {
   void dispose() => image.dispose();
 }
 
-/// 캐릭터 시트에서 바라보는 방향에 해당하는 줄 번호.
+/// 캐릭터가 바라보는 네 방향
+enum Facing { down, up, right, left }
+
+/// 시트의 세로 줄 기본 순서.
 ///
-/// 아래(0) · 왼쪽(1) · 오른쪽(2) · 위(3) 순서는 스프라이트 시트에서 널리 쓰이는
-/// 배치다. 줄이 하나뿐인 시트라면 [SpriteSheet.sourceRect]가 알아서 0으로 접는다.
-int directionRow(double facingX, double facingY) {
+/// 시트마다 배치가 다르므로 [SpriteDefinition]에서 바꿀 수 있다.
+/// 줄이 하나뿐인 시트라면 [SpriteSheet.sourceRect]가 알아서 0으로 접는다.
+const List<Facing> kDefaultDirectionOrder = [
+  Facing.down,
+  Facing.up,
+  Facing.right,
+  Facing.left,
+];
+
+/// 이동 방향을 네 방향 중 하나로 정리한다.
+Facing facingOf(double facingX, double facingY) {
   if (facingX.abs() > facingY.abs()) {
-    return facingX < 0 ? 1 : 2;
+    return facingX < 0 ? Facing.left : Facing.right;
   }
-  return facingY < 0 ? 3 : 0;
+  return facingY < 0 ? Facing.up : Facing.down;
+}
+
+/// 시트의 줄 순서에 맞춰 그려야 할 줄 번호를 고른다.
+int directionRow(
+  double facingX,
+  double facingY, {
+  List<Facing> order = kDefaultDirectionOrder,
+}) {
+  final index = order.indexOf(facingOf(facingX, facingY));
+  return index < 0 ? 0 : index;
 }

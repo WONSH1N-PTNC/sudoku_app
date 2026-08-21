@@ -91,16 +91,41 @@ void main() {
   });
 
   group('바라보는 방향', () {
-    test('가로가 우세하면 좌우 줄을 쓴다', () {
-      expect(directionRow(-1, 0), 1);
-      expect(directionRow(1, 0), 2);
-      expect(directionRow(-1, 0.3), 1);
+    test('이동 방향을 네 방향 중 하나로 정리한다', () {
+      expect(facingOf(-1, 0), Facing.left);
+      expect(facingOf(1, 0), Facing.right);
+      expect(facingOf(0, -1), Facing.up);
+      expect(facingOf(0, 1), Facing.down);
+      expect(facingOf(-1, 0.3), Facing.left, reason: '큰 쪽 축을 따른다');
+      expect(facingOf(0.2, -1), Facing.up);
     });
 
-    test('세로가 우세하면 상하 줄을 쓴다', () {
+    test('기본 줄 순서는 아래 · 위 · 오른쪽 · 왼쪽이다', () {
       expect(directionRow(0, 1), 0);
-      expect(directionRow(0, -1), 3);
-      expect(directionRow(0.2, -1), 3);
+      expect(directionRow(0, -1), 1);
+      expect(directionRow(1, 0), 2);
+      expect(directionRow(-1, 0), 3);
+    });
+
+    test('시트마다 줄 순서를 다르게 줄 수 있다', () {
+      // 아래 · 왼쪽 · 오른쪽 · 위로 배치된 시트
+      const order = [Facing.down, Facing.left, Facing.right, Facing.up];
+      expect(directionRow(0, 1, order: order), 0);
+      expect(directionRow(-1, 0, order: order), 1);
+      expect(directionRow(1, 0, order: order), 2);
+      expect(directionRow(0, -1, order: order), 3);
+    });
+
+    test('시트가 자기 줄 순서로 줄 번호를 고른다', () async {
+      final image = await makeImage(32, 32);
+      addTearDown(image.dispose);
+      final sheet = SpriteSheet(
+        image: image,
+        rows: 4,
+        directionOrder: const [Facing.up, Facing.down, Facing.left, Facing.right],
+      );
+      expect(sheet.rowFor(0, -1), 0);
+      expect(sheet.rowFor(1, 0), 3);
     });
   });
 
@@ -140,6 +165,25 @@ void main() {
     test('빈 라이브러리는 const로 만들 수 있다', () {
       const library = SpriteLibrary.empty();
       expect(library.isEmpty, isTrue);
+    });
+  });
+
+  group('실제 에셋', () {
+    test('넣어 둔 파일이 목록에 적은 격자로 정확히 나뉜다', () async {
+      // 시트를 넣었는데 columns/rows를 안 맞추면 프레임이 어긋나 잘린다.
+      final library = await SpriteLibrary.load();
+      addTearDown(library.dispose);
+
+      for (final entry in kSpriteManifest.entries) {
+        final sheet = library[entry.key];
+        if (sheet == null) continue; // 아직 안 넣은 그림은 검사할 것이 없다
+
+        final definition = entry.value;
+        expect(sheet.image.width % definition.columns, 0,
+            reason: '${definition.path}: 가로가 columns로 나누어떨어지지 않는다');
+        expect(sheet.image.height % definition.rows, 0,
+            reason: '${definition.path}: 세로가 rows로 나누어떨어지지 않는다');
+      }
     });
   });
 }
