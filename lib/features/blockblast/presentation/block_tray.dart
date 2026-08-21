@@ -65,9 +65,18 @@ class BlockTray extends StatelessWidget {
 
     if (!canPlay) return view;
 
+    // 조각이 슬롯보다 작아도 슬롯 어디를 잡든 끌 수 있게 영역을 넓힌다.
+    // 모바일에서 작은 조각을 정확히 짚기 어려운 문제를 줄여준다.
+    Widget fillSlot(Widget child) =>
+        SizedBox(width: slotSize, height: slotSize, child: Center(child: child));
+
     final data = BlockDragData(trayIndex: index, piece: piece);
     return Draggable<BlockDragData>(
       data: data,
+      // 조각을 그리는 위젯(SizedBox·DecoratedBox)은 히트 테스트에 참여하지 않는다.
+      // 기본값(deferToChild)이면 조각의 빈 칸이나 칸 경계를 짚었을 때 드래그가
+      // 아예 시작되지 않는다. 슬롯 전체를 잡을 수 있도록 opaque로 둔다.
+      hitTestBehavior: HitTestBehavior.opaque,
       // 포인터 위치를 기준으로 삼아야 보드에서 착지 칸을 정확히 역산할 수 있다.
       dragAnchorStrategy: pointerDragAnchorStrategy,
       // 드롭 대상 판정(히트 테스트)은 기본적으로 손가락 위치에서 일어난다.
@@ -80,12 +89,10 @@ class BlockTray extends StatelessWidget {
         offset: blockDragLift(piece, boardCellSize),
         child: BlockPieceView(piece: piece, cellSize: boardCellSize),
       ),
-      childWhenDragging: BlockPieceView(
-        piece: piece,
-        cellSize: trayCellSize,
-        opacity: 0.25,
+      childWhenDragging: fillSlot(
+        BlockPieceView(piece: piece, cellSize: trayCellSize, opacity: 0.25),
       ),
-      child: view,
+      child: fillSlot(view),
     );
   }
 }
