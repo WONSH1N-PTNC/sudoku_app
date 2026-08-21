@@ -105,4 +105,28 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('상단 다시 시작 버튼을 누르면 캐릭터가 다시 생성된다',
+      (WidgetTester tester) async {
+    await pumpScreen(tester, const Size(1200, 900));
+    final state = tester.state<State<CrazyArcadeScreen>>(
+        find.byType(CrazyArcadeScreen)) as dynamic;
+    final controller = state.controllerForTest;
+
+    // 잠시 플레이해 상태를 진행시킨다.
+    // (게임이 끝난 뒤에는 모달 다이얼로그가 HUD를 덮으므로 진행 중에 누른다)
+    await runFrames(tester, 70);
+    final playedWorld = controller.world;
+    expect(controller.world.elapsed as double, greaterThan(0.5));
+
+    await tester.tap(find.byTooltip('새 게임'));
+    await runFrames(tester, 2);
+
+    expect(controller.world, isNot(same(playedWorld)), reason: '새 판이 깔려야 한다');
+    expect(controller.world.actors.where((a) => a.isDead as bool), isEmpty,
+        reason: '캐릭터가 살아 있는 상태로 다시 생성되어야 한다');
+    expect(controller.world.elapsed as double, lessThan(0.2));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }

@@ -1,4 +1,28 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+
+/// 이 미만으로 기울이면 입력으로 치지 않는다. 손가락 미세한 떨림으로
+/// 캐릭터가 슬금슬금 움직이는 것을 막는다.
+const double kJoystickDeadZone = 0.12;
+
+/// 이만큼만 기울여도 최고 속도가 나온다.
+///
+/// 기울기에 그대로 비례시키면 살짝 민 상태에서 아주 느리게 움직여 조작이
+/// 답답하다. 절반쯤에서 최고 속도에 닿게 해 즉각적인 반응을 만든다.
+const double kJoystickFullThrottle = 0.55;
+
+/// 조이스틱 기울기(-1..1)를 실제 이동 입력으로 바꾼다.
+(double, double) joystickThrottle(double x, double y) {
+  final magnitude = sqrt(x * x + y * y);
+  if (magnitude <= kJoystickDeadZone) return (0, 0);
+
+  final throttle = ((magnitude - kJoystickDeadZone) /
+          (kJoystickFullThrottle - kJoystickDeadZone))
+      .clamp(0.0, 1.0);
+  // 방향은 그대로 두고 크기만 조절한다.
+  return (x / magnitude * throttle, y / magnitude * throttle);
+}
 
 /// 화면 가장자리에 띄우는 가상 조이스틱.
 ///
@@ -39,7 +63,8 @@ class _VirtualJoystickState extends State<VirtualJoystick> {
     }
 
     setState(() => _knob = delta);
-    widget.onChanged(delta.dx / _radius, delta.dy / _radius);
+    final (x, y) = joystickThrottle(delta.dx / _radius, delta.dy / _radius);
+    widget.onChanged(x, y);
   }
 
   void _release() {

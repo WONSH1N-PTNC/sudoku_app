@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../controller/crazy_arcade_controller.dart';
 import '../domain/balloon.dart';
 import '../domain/game_actor.dart';
 import '../domain/game_world.dart';
@@ -20,13 +21,20 @@ const List<Color> kTeamColors = [
 /// 이 페인터만 다시 그려진다.
 class GamePainter extends CustomPainter {
   GamePainter({
-    required this.world,
+    required this.controller,
     required this.colorScheme,
     required Listenable repaint,
   }) : super(repaint: repaint);
 
-  final GameWorld world;
+  /// 월드를 직접 들고 있지 않고 컨트롤러를 통해 읽는다.
+  ///
+  /// 게임 화면은 프레임마다 리빌드되지 않으므로, 여기서 world를 붙들면
+  /// 재시작으로 새 월드가 만들어져도 옛 월드를 계속 그리게 된다.
+  final CrazyArcadeController controller;
+
   final ColorScheme colorScheme;
+
+  GameWorld get world => controller.world;
 
   /// 맵 전체가 들어가는 한 칸의 픽셀 크기
   static double cellSizeFor(Size size, TileMap map) {
@@ -191,8 +199,19 @@ class GamePainter extends CustomPainter {
       if (actor.isDead) continue;
 
       final center = Offset(actor.x * cell, actor.y * cell);
-      final radius = kActorRadius * cell;
+      // 충돌 판정보다 조금 크게 그려 캐릭터가 타일 한 칸을 채우도록 한다.
+      final tileRadius = kActorRenderRadius * cell;
+      // 갇혀 있으면 물방울이 타일을 채우고 캐릭터는 그 안으로 들어간다.
+      final radius = actor.isBubbled ? tileRadius * 0.62 : tileRadius;
       final color = kTeamColors[actor.teamId % kTeamColors.length];
+
+      if (actor.isBubbled) {
+        canvas.drawCircle(
+          center,
+          tileRadius,
+          Paint()..color = const Color(0xFF6FD3F7).withValues(alpha: 0.30),
+        );
+      }
 
       canvas.drawCircle(center, radius, Paint()..color = color);
       canvas.drawCircle(
@@ -212,16 +231,10 @@ class GamePainter extends CustomPainter {
           radius * 0.19, eyePaint);
 
       if (actor.isBubbled) {
-        // 갇힌 동안은 물방울로 감싸고, 남은 시간을 테두리 호로 보여 준다.
-        final bubbleRadius = radius * 1.5;
-        canvas.drawCircle(
-          center,
-          bubbleRadius,
-          Paint()..color = const Color(0xFF6FD3F7).withValues(alpha: 0.35),
-        );
+        // 남은 시간을 물방울 테두리의 호로 보여 준다.
         final remaining = (actor.bubbleTimer / kBubbleDuration).clamp(0.0, 1.0);
         canvas.drawArc(
-          Rect.fromCircle(center: center, radius: bubbleRadius),
+          Rect.fromCircle(center: center, radius: tileRadius),
           -1.5708,
           6.2832 * remaining,
           false,
@@ -236,6 +249,8 @@ class GamePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant GamePainter oldDelegate) {
-    return oldDelegate.world != world || oldDelegate.colorScheme != colorScheme;
+    // 다시 그리기는 repaint Listenable이 프레임마다 알려 준다.
+    return oldDelegate.controller != controller ||
+        oldDelegate.colorScheme != colorScheme;
   }
 }

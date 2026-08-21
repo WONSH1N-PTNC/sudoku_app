@@ -139,7 +139,7 @@ class _CrazyArcadeScreenState extends State<CrazyArcadeScreen>
             Positioned.fill(
               child: CustomPaint(
                 painter: GamePainter(
-                  world: _controller.world,
+                  controller: _controller,
                   colorScheme: colorScheme,
                   repaint: _controller.frames,
                 ),

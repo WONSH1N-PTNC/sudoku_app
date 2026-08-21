@@ -10,8 +10,15 @@ enum ActorState {
   dead,
 }
 
-/// 액터 충돌 판정용 반지름 (타일 단위). 1보다 작아야 통로를 지날 수 있다.
-const double kActorRadius = 0.34;
+/// 액터 충돌 판정용 반지름 (타일 단위).
+///
+/// 0.5(타일 절반)에 도달하면 통로 한가운데 정확히 서 있어도 양옆 칸까지 판정에
+/// 걸려 아예 지나갈 수 없다. 화면상 크기(kActorRenderRadius)보다 조금 작게 두어
+/// 한 칸짜리 통로를 통과할 여유를 남긴다.
+const double kActorRadius = 0.42;
+
+/// 화면에 그릴 때의 반지름. 캐릭터가 바닥 타일 한 칸을 채우도록 한다.
+const double kActorRenderRadius = 0.48;
 
 /// 기본 이동 속도 (초당 타일 수)
 const double kBaseSpeed = 3.2;

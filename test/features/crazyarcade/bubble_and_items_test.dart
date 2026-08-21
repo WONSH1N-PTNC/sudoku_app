@@ -3,6 +3,7 @@ import 'package:sudoku_app/features/crazyarcade/domain/balloon.dart';
 import 'package:sudoku_app/features/crazyarcade/domain/game_actor.dart';
 import 'package:sudoku_app/features/crazyarcade/domain/game_world.dart';
 import 'package:sudoku_app/features/crazyarcade/domain/item.dart';
+import 'package:sudoku_app/features/crazyarcade/domain/tile_map.dart';
 import 'package:sudoku_app/features/crazyarcade/domain/player_intent.dart';
 
 import 'crazy_arcade_harness.dart';
@@ -104,6 +105,57 @@ void main() {
       advance(world, 0.6, intents: {0: const PlayerIntent(moveX: 1)});
 
       expect(actor.power, kMaxPower);
+    });
+  });
+
+  group('아이템과 폭발', () {
+    test('불꽃이 닿은 아이템은 사라진다', () {
+      final world = worldWith(spawns: [(col: 3, row: 3, team: 0)]);
+      world.actors.first.power = 3;
+      world.items.add(Item(col: 5, row: 3, type: ItemType.power));
+
+      placeBalloonOnce(world, 0);
+      advance(world, kBalloonFuse + 0.05);
+
+      expect(world.explosions.first.covers(5, 3), isTrue);
+      expect(world.items, isEmpty, reason: '불꽃에 닿은 아이템은 없어져야 한다');
+    });
+
+    test('불꽃이 닿지 않은 아이템은 남는다', () {
+      final world = worldWith(spawns: [(col: 3, row: 3, team: 0)]);
+      world.actors.first.power = 1;
+      world.items.add(Item(col: 7, row: 7, type: ItemType.speed));
+
+      placeBalloonOnce(world, 0);
+      advance(world, kBalloonFuse + 0.05);
+
+      expect(world.items, hasLength(1));
+    });
+
+    test('상자를 부수며 나온 아이템은 그 폭발에 함께 없어지지 않는다', () {
+      // 상자가 깨진 칸은 같은 불꽃이 덮고 있다. 여기서 나온 아이템까지 지우면
+      // 아이템이 영영 등장하지 못한다.
+      final map = openMap();
+      for (int col = 4; col < 9; col++) {
+        map.setTile(col, 3, TileType.box);
+      }
+      final world = worldWith(spawns: [(col: 3, row: 3, team: 0)], map: map, seed: 7);
+      world.actors.first.power = 1;
+
+      var dropped = 0;
+      for (int attempt = 0; attempt < 40 && dropped == 0; attempt++) {
+        final w = worldWith(
+          spawns: [(col: 3, row: 3, team: 0)],
+          map: openMap()..setTile(4, 3, TileType.box),
+          seed: attempt,
+        );
+        w.actors.first.power = 1;
+        placeBalloonOnce(w, 0);
+        advance(w, kBalloonFuse + 0.05);
+        dropped = w.items.length;
+      }
+      expect(dropped, greaterThan(0),
+          reason: '상자에서 나온 아이템이 같은 폭발에 지워지면 안 된다');
     });
   });
 

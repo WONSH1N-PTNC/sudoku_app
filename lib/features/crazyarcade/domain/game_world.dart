@@ -118,13 +118,25 @@ class GameWorld {
     }
 
     final queue = balloons.where((b) => b.fuse <= 0).toList();
+    if (queue.isEmpty) return;
+
+    // 이번 폭발로 없앨 수 있는 아이템은 폭발이 시작되기 전부터 바닥에 있던 것뿐이다.
+    // 상자가 깨지며 새로 나온 아이템까지 지우면 아이템이 영영 등장하지 못한다
+    // (상자가 있던 칸은 그 불꽃이 그대로 덮고 있기 때문).
+    final preExisting = Set<Item>.identity()..addAll(items);
+    final burnedCells = <(int, int)>{};
+
     while (queue.isNotEmpty) {
       final balloon = queue.removeAt(0);
       // 이미 다른 연쇄로 처리된 물풍선은 건너뛴다.
       if (!balloons.remove(balloon)) continue;
       final cells = _explosionCells(balloon, queue.add);
+      burnedCells.addAll(cells);
       explosions.add(Explosion(cells: cells, ownerId: balloon.ownerId));
     }
+
+    items.removeWhere((item) =>
+        preExisting.contains(item) && burnedCells.contains((item.col, item.row)));
   }
 
   /// 폭발이 덮는 칸을 계산한다. 상자는 첫 하나만 부수고 멈추며,
