@@ -60,10 +60,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    # 크레이지 아케이드 스프라이트. 비어 있어도 되며, 파일이 없으면
+    # 코드로 그리는 기본 아트가 쓰인다. 자세한 내용은 폴더의 README 참고.
+    - assets/images/crazyarcade/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

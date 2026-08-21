@@ -5,6 +5,7 @@ import '../controller/crazy_arcade_controller.dart';
 import '../domain/game_world.dart';
 import 'game_painter.dart';
 import 'player_input.dart';
+import 'sprites/sprite_library.dart';
 import 'virtual_pad.dart';
 
 /// 이 값보다 화면이 좁으면 가상 패드를 띄운다 (휴대폰 · 태블릿).
@@ -30,6 +31,9 @@ class _CrazyArcadeScreenState extends State<CrazyArcadeScreen>
   Duration _lastTick = Duration.zero;
   bool _resultDialogShown = false;
 
+  /// 넣어 둔 그림. 없으면 비어 있고, 그 경우 코드로 그리는 기본 아트가 쓰인다.
+  SpriteLibrary _sprites = const SpriteLibrary.empty();
+
   /// 위젯 테스트에서 실제 게임 상태를 확인하기 위한 통로
   @visibleForTesting
   CrazyArcadeController get controllerForTest => _controller;
@@ -41,6 +45,18 @@ class _CrazyArcadeScreenState extends State<CrazyArcadeScreen>
     _controller.inputs[CrazyArcadeController.playerId] = _input;
     _controller.result.addListener(_onResultChanged);
     _ticker = createTicker(_onTick)..start();
+    _loadSprites();
+  }
+
+  /// 에셋을 읽어 온다. 파일이 없어도 정상이므로 게임을 막지 않고 뒤에서 진행한다.
+  Future<void> _loadSprites() async {
+    final loaded = await SpriteLibrary.load();
+    if (!mounted) {
+      loaded.dispose();
+      return;
+    }
+    if (loaded.isEmpty) return; // 기본 아트 그대로. 굳이 다시 그릴 필요가 없다.
+    setState(() => _sprites = loaded);
   }
 
   @override
@@ -49,6 +65,7 @@ class _CrazyArcadeScreenState extends State<CrazyArcadeScreen>
     _ticker.dispose();
     _controller.result.removeListener(_onResultChanged);
     _controller.dispose();
+    _sprites.dispose();
     super.dispose();
   }
 
@@ -139,6 +156,7 @@ class _CrazyArcadeScreenState extends State<CrazyArcadeScreen>
               child: CustomPaint(
                 painter: GamePainter(
                   controller: _controller,
+                  sprites: _sprites,
                   repaint: _controller.frames,
                 ),
               ),

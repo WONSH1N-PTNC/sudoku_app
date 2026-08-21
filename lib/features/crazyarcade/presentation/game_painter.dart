@@ -8,6 +8,8 @@ import '../domain/game_actor.dart';
 import '../domain/game_world.dart';
 import '../domain/item.dart';
 import '../domain/tile_map.dart';
+import 'sprites/sprite_library.dart';
+import 'sprites/sprite_sheet.dart';
 
 /// 게임 화면 전용 팔레트.
 ///
@@ -50,8 +52,13 @@ const List<Color> kTeamColors = [
 class GamePainter extends CustomPainter {
   GamePainter({
     required this.controller,
+    this.sprites = const SpriteLibrary.empty(),
     required Listenable repaint,
   }) : super(repaint: repaint);
+
+  /// 넣어 둔 그림. 비어 있으면 아래의 기본 아트로 그린다.
+  /// 일부만 넣어도 되며, 있는 것만 그림으로 바뀐다.
+  final SpriteLibrary sprites;
 
   /// 월드를 직접 들고 있지 않고 컨트롤러를 통해 읽는다.
   ///
@@ -97,6 +104,16 @@ class GamePainter extends CustomPainter {
 
   /// 바닥. 두 가지 초록을 번갈아 깔아 칸 경계가 자연스럽게 보이게 한다.
   void _paintGround(Canvas canvas, double cell) {
+    final sheet = sprites[GameSprite.ground];
+    if (sheet != null) {
+      for (int row = 0; row < world.map.height; row++) {
+        for (int col = 0; col < world.map.width; col++) {
+          sheet.draw(canvas, _cellRect(col, row, cell));
+        }
+      }
+      return;
+    }
+
     final light = Paint()..color = GamePalette.groundLight;
     final dark = Paint()..color = GamePalette.groundDark;
     final edge = Paint()
@@ -117,7 +134,18 @@ class GamePainter extends CustomPainter {
   void _paintBlocks(Canvas canvas, double cell) {
     for (int row = 0; row < world.map.height; row++) {
       for (int col = 0; col < world.map.width; col++) {
-        switch (world.map.tileAt(col, row)) {
+        final tile = world.map.tileAt(col, row);
+        final sheet = switch (tile) {
+          TileType.wall => sprites[GameSprite.wall],
+          TileType.box => sprites[GameSprite.box],
+          TileType.empty => null,
+        };
+        if (sheet != null) {
+          sheet.draw(canvas, _cellRect(col, row, cell));
+          continue;
+        }
+
+        switch (tile) {
           case TileType.wall:
             _paintBlock(canvas, col, row, cell,
                 top: GamePalette.wallTop,
@@ -216,6 +244,19 @@ class GamePainter extends CustomPainter {
         Paint()..color = GamePalette.shadow,
       );
 
+      final sheet = sprites[switch (item.type) {
+        ItemType.power => GameSprite.itemPower,
+        ItemType.count => GameSprite.itemCount,
+        ItemType.speed => GameSprite.itemSpeed,
+      }];
+      if (sheet != null) {
+        sheet.draw(
+          canvas,
+          Rect.fromCenter(center: center, width: cell * 0.7, height: cell * 0.7),
+        );
+        continue;
+      }
+
       final badge = RRect.fromRectAndRadius(
         Rect.fromCenter(center: center, width: cell * 0.56, height: cell * 0.56),
         Radius.circular(cell * 0.16),
@@ -292,6 +333,21 @@ class GamePainter extends CustomPainter {
         Paint()..color = GamePalette.shadow,
       );
 
+      final sheet = sprites[GameSprite.balloon];
+      if (sheet != null) {
+        // 심지가 얼마나 남았는지에 맞춰 프레임을 고른다.
+        sheet.draw(
+          canvas,
+          Rect.fromCenter(
+            center: center,
+            width: radius * 2.2,
+            height: radius * 2.2,
+          ),
+          column: sheet.frameForProgress(progress),
+        );
+        continue;
+      }
+
       // 물이 든 느낌을 주려고 세로로 살짝 눌린 타원으로 그린다.
       final body = Rect.fromCenter(
         center: center,
@@ -326,6 +382,15 @@ class GamePainter extends CustomPainter {
       // 터지는 순간 가장 크게 퍼지고 잦아든다.
       final spread = 1 - (t - 0.5).abs() * 2 * 0.35;
       final inset = cell * (0.30 - 0.24 * spread);
+
+      final sheet = sprites[GameSprite.explosion];
+      if (sheet != null) {
+        final column = sheet.frameForProgress(1 - t);
+        for (final (col, row) in explosion.cells) {
+          sheet.draw(canvas, _cellRect(col, row, cell), column: column);
+        }
+        continue;
+      }
 
       final splash = Paint()
         ..color = GamePalette.water.withValues(alpha: 0.30 + 0.45 * t);
@@ -371,7 +436,21 @@ class GamePainter extends CustomPainter {
       );
 
       final bodyRadius = actor.isBubbled ? tileRadius * 0.6 : tileRadius;
-      _paintCharacter(canvas, center, bodyRadius, color, actor, cell);
+      final sheet = sprites[GameSprite.character];
+      if (sheet != null) {
+        sheet.draw(
+          canvas,
+          Rect.fromCenter(
+            center: center,
+            width: bodyRadius * 2.1,
+            height: bodyRadius * 2.1,
+          ),
+          column: sheet.frameAt(world.elapsed + actor.id),
+          row: directionRow(actor.facingX, actor.facingY),
+        );
+      } else {
+        _paintCharacter(canvas, center, bodyRadius, color, actor, cell);
+      }
 
       if (actor.isBubbled) {
         _paintBubble(canvas, Offset(actor.x * cell, actor.y * cell),
