@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'balloon.dart';
+import 'blast.dart';
 import 'game_actor.dart';
 import 'item.dart';
 import 'player_intent.dart';
@@ -139,38 +140,24 @@ class GameWorld {
         preExisting.contains(item) && burnedCells.contains((item.col, item.row)));
   }
 
-  /// 폭발이 덮는 칸을 계산한다. 상자는 첫 하나만 부수고 멈추며,
-  /// 다른 물풍선에 닿으면 [chain]으로 넘겨 즉시 연쇄시킨다.
+  /// 폭발이 덮는 칸을 계산하고, 지나간 상자를 부수며 물풍선을 연쇄시킨다.
+  /// 범위 규칙 자체는 [blastCells]가 단독으로 들고 있다 (AI와 공유).
   List<(int, int)> _explosionCells(Balloon balloon, void Function(Balloon) chain) {
-    final cells = <(int, int)>[(balloon.col, balloon.row)];
-    const directions = [(1, 0), (-1, 0), (0, 1), (0, -1)];
-
-    for (final (dc, dr) in directions) {
-      for (int step = 1; step <= balloon.power; step++) {
-        final col = balloon.col + dc * step;
-        final row = balloon.row + dr * step;
-        if (!map.inBounds(col, row)) break;
-
-        final tile = map.tileAt(col, row);
-        if (tile == TileType.wall) break;
-
-        if (tile == TileType.box) {
-          map.breakBox(col, row);
-          _maybeDropItem(col, row);
-          cells.add((col, row));
-          break; // 상자 뒤로는 불꽃이 뻗지 않는다
-        }
-
-        cells.add((col, row));
-
+    return blastCells(
+      map,
+      balloon.col,
+      balloon.row,
+      balloon.power,
+      hasBalloon: (col, row) => balloonAt(col, row) != null,
+      onBox: (col, row) {
+        map.breakBox(col, row);
+        _maybeDropItem(col, row);
+      },
+      onBalloon: (col, row) {
         final other = balloonAt(col, row);
-        if (other != null) {
-          chain(other);
-          break;
-        }
-      }
-    }
-    return cells;
+        if (other != null) chain(other);
+      },
+    );
   }
 
   void _maybeDropItem(int col, int row) {

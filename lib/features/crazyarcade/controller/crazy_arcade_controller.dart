@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../ai/bot_brain.dart';
 import '../domain/game_actor.dart';
 import '../domain/game_world.dart';
 import '../domain/input_source.dart';
@@ -69,7 +70,14 @@ class CrazyArcadeController {
     _accumulator = 0;
     _pendingPlace.clear();
     for (final actor in world.actors) {
-      inputs.putIfAbsent(actor.id, () => const IdleInputSource());
+      if (actor.id == playerId) {
+        // 플레이어 입력 소스는 화면이 붙여 주므로 덮어쓰지 않는다.
+        inputs.putIfAbsent(actor.id, () => const IdleInputSource());
+      } else {
+        // 봇의 두뇌는 월드를 참조하므로 새 판마다 새로 만들어야 한다.
+        inputs[actor.id] =
+            BotBrain(world: world, actorId: actor.id, random: _random);
+      }
     }
   }
 
