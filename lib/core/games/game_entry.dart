@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../features/blockblast/presentation/block_blast_screen.dart';
+import '../../features/crazyarcade/presentation/crazy_arcade_screen.dart';
 import '../../features/sudoku/presentation/sudoku_screen.dart';
 
 /// 허브에 등록된 게임 한 개의 메타데이터.
@@ -55,5 +56,12 @@ const List<GameEntry> kGameRegistry = <GameEntry>[
     description: '8×8 보드에 조각을 놓아 행과 열을 지우는 퍼즐',
     builder: BlockBlastScreen.new,
   ),
-  // 향후 추가 예정: 클래식 테트리스(낙하·회전), 슈팅, 아케이드
+  GameEntry(
+    id: 'crazyarcade',
+    title: '크레이지 아케이드',
+    icon: Icons.bubble_chart_rounded,
+    description: '물풍선을 놓아 상대를 가두는 실시간 액션',
+    builder: CrazyArcadeScreen.new,
+  ),
+  // 향후 추가 예정: 클래식 테트리스(낙하·회전), 슈팅
 ];
