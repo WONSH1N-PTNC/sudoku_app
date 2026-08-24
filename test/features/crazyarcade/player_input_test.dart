@@ -77,11 +77,11 @@ void main() {
   group('가상 조이스틱', () {
     test('조이스틱 값이 이동 입력이 된다', () {
       final input = PlayerInputSource();
-      input.setStick(0.5, -0.5);
+      input.setStick(0, -0.7);
 
       final intent = input.read();
-      expect(intent.moveX, 0.5);
-      expect(intent.moveY, -0.5);
+      expect(intent.moveX, 0);
+      expect(intent.moveY, closeTo(-0.7, 1e-9));
     });
 
     test('조이스틱을 잡고 있으면 키보드보다 우선한다', () {
@@ -135,6 +135,56 @@ void main() {
       const tilt = 0.35;
       final (x, _) = joystickThrottle(tilt, 0);
       expect(x, greaterThan(tilt));
+    });
+
+    test('비스듬히 밀어도 한 축으로만 입력이 나간다', () {
+      final input = PlayerInputSource();
+      input.setStick(0.9, 0.5);
+
+      final intent = input.read();
+      expect(intent.moveY, 0, reason: '덜 기운 축은 버린다');
+      expect(intent.moveX, greaterThan(0));
+    });
+
+    test('기운 세기가 유지된다', () {
+      final input = PlayerInputSource();
+      input.setStick(0.6, 0);
+      expect(input.read().moveX, closeTo(0.6, 1e-9));
+
+      input.setStick(1, 0);
+      expect(input.read().moveX, closeTo(1.0, 1e-9));
+    });
+
+    test('대각선 근처에서 방향이 딸깍거리지 않는다', () {
+      // 축이 엎치락뒤치락하면 캐릭터가 제자리에서 흔들린다.
+      final input = PlayerInputSource();
+      input.setStick(0.8, 0.1);
+      expect(input.read().moveX, isNot(0), reason: '가로축으로 시작한다');
+
+      // 세로가 살짝 더 커진 정도로는 축을 바꾸지 않는다.
+      input.setStick(0.5, 0.55);
+      final held = input.read();
+      expect(held.moveX, isNot(0), reason: '가던 축을 유지해야 한다');
+      expect(held.moveY, 0);
+
+      // 확실히 세로로 밀면 바꾼다.
+      input.setStick(0.2, 0.9);
+      final switched = input.read();
+      expect(switched.moveY, isNot(0));
+      expect(switched.moveX, 0);
+    });
+
+    test('손을 떼면 축 선택이 초기화된다', () {
+      final input = PlayerInputSource();
+      input.setStick(0.9, 0.1);
+      input.read();
+
+      input.setStick(0, 0);
+      input.read();
+
+      // 다시 잡으면 이전 축에 얽매이지 않는다.
+      input.setStick(0.1, 0.9);
+      expect(input.read().moveY, isNot(0));
     });
   });
 }

@@ -13,6 +13,7 @@ enum GameSprite {
   balloon,
   explosion,
   character,
+  bot,
   itemPower,
   itemCount,
   itemSpeed,
@@ -58,6 +59,14 @@ const Map<GameSprite, SpriteDefinition> kSpriteManifest = {
   // 가로 8프레임 걷기, 세로 4줄이 방향(아래 · 위 · 오른쪽 · 왼쪽)
   GameSprite.character: SpriteDefinition(
     path: 'assets/images/crazyarcade/character.png',
+    columns: 8,
+    rows: 4,
+    fps: 10,
+    directionOrder: [Facing.down, Facing.up, Facing.right, Facing.left],
+  ),
+  // 봇 시트. 넣지 않으면 플레이어 시트를 함께 쓴다(발밑 팀 색 고리로 구분).
+  GameSprite.bot: SpriteDefinition(
+    path: 'assets/images/crazyarcade/bot.png',
     columns: 8,
     rows: 4,
     fps: 10,

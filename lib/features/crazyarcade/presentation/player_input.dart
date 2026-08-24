@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/services.dart';
 
 import '../domain/input_source.dart';
@@ -8,6 +10,12 @@ import '../domain/player_intent.dart';
 /// 키보드와 모바일 가상 패드를 하나로 합친다. 둘 다 항상 살아 있어서
 /// 터치 기기에 키보드를 붙여도, 데스크톱에서 창을 좁혀 패드가 떠도 그대로 동작한다.
 /// 조이스틱을 잡고 있는 동안에는 조이스틱이 우선한다.
+/// 조이스틱 방향을 바꾸려면 다른 축이 지금 축보다 이만큼 더 기울어야 한다.
+///
+/// 대각선 근처에서 두 축이 엎치락뒤치락하면 캐릭터가 방향을 딸깍거리며
+/// 제자리에서 흔들린다. 지금 가던 축에 관성을 줘서 그것을 막는다.
+const double kAxisSwitchBias = 1.4;
+
 class PlayerInputSource implements InputSource {
   // LogicalKeyboardKey는 커스텀 ==/hashCode를 가져 const 컬렉션에 넣을 수 없다.
   static final Set<LogicalKeyboardKey> _leftKeys = {
@@ -40,6 +48,9 @@ class PlayerInputSource implements InputSource {
 
   /// 설치 요청. 눌린 순간 한 번만 켜지고 읽는 즉시 꺼진다.
   bool _placeRequested = false;
+
+  /// 조이스틱이 지금 가로축을 타고 있는지. 손을 떼면 비운다.
+  bool? _stickHorizontal;
 
   /// 키 이벤트를 반영한다. 게임이 처리한 키면 true.
   bool handleKeyEvent(KeyEvent event) {
@@ -77,6 +88,23 @@ class PlayerInputSource implements InputSource {
   void setStick(double x, double y) {
     _stickX = x;
     _stickY = y;
+    if (x == 0 && y == 0) _stickHorizontal = null;
+  }
+
+  /// 지금 탈 축을 고른다. 한 번 정한 축은 다른 축이 확실히 더 기울 때만 바꾼다.
+  bool _stickAxisIsHorizontal() {
+    final ax = _stickX.abs();
+    final ay = _stickY.abs();
+    final current = _stickHorizontal;
+
+    if (current == null) {
+      _stickHorizontal = ax >= ay;
+    } else if (current && ay > ax * kAxisSwitchBias) {
+      _stickHorizontal = false;
+    } else if (!current && ax > ay * kAxisSwitchBias) {
+      _stickHorizontal = true;
+    }
+    return _stickHorizontal!;
   }
 
   /// 가상 패드의 물풍선 버튼이 호출한다.
@@ -87,6 +115,7 @@ class PlayerInputSource implements InputSource {
     _pressed.clear();
     _stickX = 0;
     _stickY = 0;
+    _stickHorizontal = null;
   }
 
   @override
@@ -95,8 +124,15 @@ class PlayerInputSource implements InputSource {
     _placeRequested = false;
 
     // 조이스틱을 잡고 있으면 그쪽을 쓴다.
+    // 비스듬히 밀어도 한 방향으로만 나아가도록 기운 정도는 유지한 채 축을 고른다.
     if (_stickX != 0 || _stickY != 0) {
-      return PlayerIntent(moveX: _stickX, moveY: _stickY, placeBalloon: place);
+      final magnitude =
+          math.min(1.0, math.sqrt(_stickX * _stickX + _stickY * _stickY));
+      return _stickAxisIsHorizontal()
+          ? PlayerIntent(
+              moveX: _stickX.sign * magnitude, moveY: 0, placeBalloon: place)
+          : PlayerIntent(
+              moveX: 0, moveY: _stickY.sign * magnitude, placeBalloon: place);
     }
 
     double x = 0;

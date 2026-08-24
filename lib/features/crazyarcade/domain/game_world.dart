@@ -215,42 +215,39 @@ class GameWorld {
   void _moveActors(double dt, Map<int, PlayerIntent> intents) {
     for (final actor in actors) {
       if (!actor.canAct) continue;
-      final intent = (intents[actor.id] ?? PlayerIntent.idle).normalized();
+      // 이동은 상하좌우 한 방향으로만 이뤄진다. 대각으로 흐르면 한 칸을 꽉 채우는
+      // 캐릭터가 통로에 정렬되지 못해 모서리마다 걸리고 조작이 어려워진다.
+      final intent =
+          (intents[actor.id] ?? PlayerIntent.idle).normalized().cardinal();
       if (!intent.isMoving) continue;
 
-      // 이동을 시도한 방향을 바라본다. 벽에 막혀 실제로 못 움직여도
-      // 바라보는 방향은 바뀌는 편이 조작감에 맞다.
-      actor.facingX = intent.moveX;
-      actor.facingY = intent.moveY;
+      // 나아가려는 쪽을 바라본다. 벽에 막혀 실제로 못 움직여도 방향은 바뀐다.
+      actor.facingX = intent.moveX.sign;
+      actor.facingY = intent.moveY.sign;
 
       final step = actor.speed * dt;
+      final horizontal = intent.moveX != 0;
 
-      if (intent.moveX != 0) {
+      // 진행 축과 직각인 방향은 늘 통로 중앙으로 당겨 준다.
+      // 덕분에 캐릭터가 칸 격자에 자연스럽게 얹혀 모서리를 스치듯 돌 수 있다.
+      _alignToLane(actor, step, horizontal: horizontal);
+
+      if (horizontal) {
         final nx = actor.x + intent.moveX * step;
-        if (_canOccupy(actor, nx, actor.y)) {
-          actor.x = nx;
-        } else {
-          _slipTowardLane(actor, step, horizontal: true);
-        }
-      }
-
-      if (intent.moveY != 0) {
+        if (_canOccupy(actor, nx, actor.y)) actor.x = nx;
+      } else {
         final ny = actor.y + intent.moveY * step;
-        if (_canOccupy(actor, actor.x, ny)) {
-          actor.y = ny;
-        } else {
-          _slipTowardLane(actor, step, horizontal: false);
-        }
+        if (_canOccupy(actor, actor.x, ny)) actor.y = ny;
       }
     }
   }
 
-  /// 통로에 살짝 어긋나 모서리에 걸렸을 때 통로 중앙 쪽으로 보정한다.
+  /// 진행 방향과 직각인 축을 통로 중앙으로 조금씩 당긴다.
   ///
   /// 이 보정이 없으면 칸에 정확히 정렬되지 않은 상태로는 좁은 통로에 들어가지
-  /// 못해 조작이 답답해진다. 원작에서 모서리를 스치듯 도는 감각을 만든다.
-  void _slipTowardLane(Actor actor, double step, {required bool horizontal}) {
-    // 가로로 막혔으면 세로 위치를, 세로로 막혔으면 가로 위치를 정렬한다.
+  /// 못해 조작이 답답해진다.
+  void _alignToLane(Actor actor, double step, {required bool horizontal}) {
+    // 가로로 나아가면 세로 위치를, 세로로 나아가면 가로 위치를 정렬한다.
     final current = horizontal ? actor.y : actor.x;
     final laneCenter = current.floor() + 0.5;
     final delta = laneCenter - current;

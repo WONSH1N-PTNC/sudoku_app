@@ -436,7 +436,11 @@ class GamePainter extends CustomPainter {
       );
 
       final bodyRadius = actor.isBubbled ? tileRadius * 0.6 : tileRadius;
-      final sheet = sprites[GameSprite.character];
+      // 플레이어와 봇은 다른 시트를 쓴다. 봇 시트를 넣지 않았으면 플레이어 시트를
+      // 함께 쓰되, 발밑 팀 색 고리로 여전히 구분된다.
+      final isPlayer = actor.teamId == world.playerTeamId;
+      final sheet = (isPlayer ? null : sprites[GameSprite.bot]) ??
+          sprites[GameSprite.character];
 
       if (sheet != null) {
         // 모두 같은 그림을 쓰므로 발밑 고리 색으로 누가 누구인지 구분한다.

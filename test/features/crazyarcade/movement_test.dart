@@ -121,5 +121,53 @@ void main() {
 
       expect(actor.facingX, -1, reason: '벽을 향해도 그쪽을 봐야 한다');
     });
+
+    test('비스듬히 밀어도 한 방향으로만 나아간다', () {
+      // 대각으로 흐르면 한 칸을 채우는 캐릭터가 통로에 정렬되지 못해 걸린다.
+      final world = worldWith(spawns: [(col: 6, row: 6, team: 0)]);
+      final actor = world.actors.first;
+
+      advance(world, 0.4, intents: {0: const PlayerIntent(moveX: 1, moveY: 0.6)});
+
+      expect(actor.x, greaterThan(6.5), reason: '더 많이 기운 쪽으로 간다');
+      expect(actor.y, closeTo(6.5, 1e-6), reason: '직각 축으로는 흐르지 않아야 한다');
+    });
+
+    test('기운 세기는 유지되어 살짝 밀면 천천히 간다', () {
+      final full = worldWith(spawns: [(col: 6, row: 6, team: 0)]);
+      final half = worldWith(spawns: [(col: 6, row: 6, team: 0)]);
+
+      advance(full, 0.3, intents: {0: const PlayerIntent(moveX: 1)});
+      advance(half, 0.3, intents: {0: const PlayerIntent(moveX: 0.5)});
+
+      expect(half.actors.first.x - 6.5,
+          closeTo((full.actors.first.x - 6.5) * 0.5, 0.02));
+    });
+
+    test('나아가는 동안 직각 축이 통로 중앙으로 정렬된다', () {
+      final world = worldWith(spawns: [(col: 3, row: 3, team: 0)]);
+      final actor = world.actors.first;
+      actor.y = 3.15; // 통로에서 벗어난 상태
+
+      advance(world, 0.5, intents: {0: const PlayerIntent(moveX: 1)});
+
+      expect(actor.y, closeTo(3.5, 0.01), reason: '가로로 가는 동안 세로가 정렬되어야 한다');
+      expect(actor.x, greaterThan(3.5), reason: '정렬하면서도 앞으로 나아간다');
+    });
+
+    test('방향을 꺾으면 이전 축이 통로 중앙으로 정렬된다', () {
+      final world = worldWith(spawns: [(col: 3, row: 3, team: 0)]);
+      final actor = world.actors.first;
+
+      advance(world, 0.25, intents: {0: const PlayerIntent(moveX: 1)});
+      final xAfterTurnStart = actor.x;
+      expect(xAfterTurnStart, isNot(closeTo(3.5, 0.01)),
+          reason: '칸 중앙에서 벗어난 상태로 꺾어야 의미가 있다');
+
+      advance(world, 0.5, intents: {0: const PlayerIntent(moveY: 1)});
+
+      expect(actor.x, closeTo(actor.x.floor() + 0.5, 0.01),
+          reason: '세로로 꺾으면 가로가 통로 중앙에 맞춰져야 한다');
+    });
   });
 }

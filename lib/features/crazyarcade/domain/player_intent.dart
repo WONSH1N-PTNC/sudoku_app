@@ -40,6 +40,28 @@ class PlayerIntent {
     );
   }
 
+  /// 상하좌우 한 방향만 남긴다. 기울인 세기는 그대로 유지한다.
+  ///
+  /// 한 칸을 꽉 채우는 캐릭터가 대각으로 흐르면 통로에 정렬되지 못해 모서리마다
+  /// 걸린다. 이 장르에서 이동을 네 방향으로 묶는 이유이며, 조이스틱을 비스듬히
+  /// 밀어도 의도한 한 방향으로만 나아가게 한다.
+  PlayerIntent cardinal() {
+    if (!isMoving) return this;
+    final magnitude = math.min(1.0, math.sqrt(moveX * moveX + moveY * moveY));
+    if (moveX.abs() >= moveY.abs()) {
+      return PlayerIntent(
+        moveX: moveX.sign * magnitude,
+        moveY: 0,
+        placeBalloon: placeBalloon,
+      );
+    }
+    return PlayerIntent(
+      moveX: 0,
+      moveY: moveY.sign * magnitude,
+      placeBalloon: placeBalloon,
+    );
+  }
+
   @override
   String toString() =>
       'PlayerIntent(move: ($moveX, $moveY), placeBalloon: $placeBalloon)';
