@@ -14,6 +14,8 @@ enum GameSprite {
   explosion,
   character,
   bot,
+  bot1,
+  bot2,
   itemPower,
   itemCount,
   itemSpeed,
@@ -67,6 +69,21 @@ const Map<GameSprite, SpriteDefinition> kSpriteManifest = {
   // 봇 시트. 넣지 않으면 플레이어 시트를 함께 쓴다(발밑 팀 색 고리로 구분).
   GameSprite.bot: SpriteDefinition(
     path: 'assets/images/crazyarcade/bot.png',
+    columns: 8,
+    rows: 4,
+    fps: 10,
+    directionOrder: [Facing.down, Facing.up, Facing.right, Facing.left],
+  ),
+  // 봇 생김새를 여러 개 넣으면 판마다 무작위로 골라 쓴다.
+  GameSprite.bot1: SpriteDefinition(
+    path: 'assets/images/crazyarcade/bot1.png',
+    columns: 8,
+    rows: 4,
+    fps: 10,
+    directionOrder: [Facing.down, Facing.up, Facing.right, Facing.left],
+  ),
+  GameSprite.bot2: SpriteDefinition(
+    path: 'assets/images/crazyarcade/bot2.png',
     columns: 8,
     rows: 4,
     fps: 10,

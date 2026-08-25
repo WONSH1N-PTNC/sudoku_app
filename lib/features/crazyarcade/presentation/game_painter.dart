@@ -9,6 +9,7 @@ import '../domain/game_world.dart';
 import '../domain/item.dart';
 import '../domain/tile_map.dart';
 import 'sprites/sprite_library.dart';
+import 'sprites/sprite_sheet.dart';
 
 /// 게임 화면 전용 팔레트.
 ///
@@ -58,6 +59,29 @@ class GamePainter extends CustomPainter {
   /// 넣어 둔 그림. 비어 있으면 아래의 기본 아트로 그린다.
   /// 일부만 넣어도 되며, 있는 것만 그림으로 바뀐다.
   final SpriteLibrary sprites;
+
+  /// 봇 생김새로 쓸 수 있는 그림들. 넣어 둔 것만 남는다.
+  static const List<GameSprite> kBotSprites = [
+    GameSprite.bot,
+    GameSprite.bot1,
+    GameSprite.bot2,
+  ];
+
+  /// 실제로 준비된 봇 그림 목록. 프레임마다 다시 훑지 않도록 한 번만 모은다.
+  late final List<SpriteSheet> _botSheets = kBotSprites
+      .map((sprite) => sprites[sprite])
+      .whereType<SpriteSheet>()
+      .toList(growable: false);
+
+  /// 봇이 쓸 그림을 고른다.
+  ///
+  /// 여러 개를 넣어 두면 액터마다 배정된 무작위 값으로 갈라져 한 판에 서로 다른
+  /// 봇이 섞여 나온다. 하나도 없으면 플레이어 그림을 함께 쓴다.
+  @visibleForTesting
+  SpriteSheet? botSheetFor(int appearanceSeed) {
+    if (_botSheets.isEmpty) return sprites[GameSprite.character];
+    return _botSheets[appearanceSeed % _botSheets.length];
+  }
 
   /// 월드를 직접 들고 있지 않고 컨트롤러를 통해 읽는다.
   ///
@@ -436,11 +460,12 @@ class GamePainter extends CustomPainter {
       );
 
       final bodyRadius = actor.isBubbled ? tileRadius * 0.6 : tileRadius;
-      // 플레이어와 봇은 다른 시트를 쓴다. 봇 시트를 넣지 않았으면 플레이어 시트를
+      // 플레이어와 봇은 다른 시트를 쓴다. 봇 그림을 넣지 않았으면 플레이어 시트를
       // 함께 쓰되, 발밑 팀 색 고리로 여전히 구분된다.
       final isPlayer = actor.teamId == world.playerTeamId;
-      final sheet = (isPlayer ? null : sprites[GameSprite.bot]) ??
-          sprites[GameSprite.character];
+      final sheet = isPlayer
+          ? sprites[GameSprite.character]
+          : botSheetFor(actor.appearanceSeed);
 
       if (sheet != null) {
         // 모두 같은 그림을 쓰므로 발밑 고리 색으로 누가 누구인지 구분한다.

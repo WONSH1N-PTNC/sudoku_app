@@ -43,12 +43,19 @@ class Actor {
     required this.teamId,
     required this.x,
     required this.y,
+    this.appearanceSeed = 0,
   });
 
   final int id;
 
   /// 같은 팀이면 물방울을 터뜨려 구조하고, 다른 팀이면 즉시 탈락시킨다.
   final int teamId;
+
+  /// 생김새를 고르는 데 쓰는 고정된 무작위 값.
+  ///
+  /// 몇 종류의 그림이 준비되어 있는지는 도메인이 알 필요가 없다. 여기서는
+  /// 액터마다 변하지 않는 수 하나만 주고, 그림을 고르는 일은 화면 쪽에 맡긴다.
+  final int appearanceSeed;
 
   double x;
   double y;

@@ -67,6 +67,19 @@ void main() {
       expect(world.result, GameResult.playing);
     });
 
+    test('액터마다 생김새 값이 배정되고 시드가 같으면 같은 조합이 나온다', () {
+      final a = GameWorld.stage(random: Random(8), botCount: 3);
+      final b = GameWorld.stage(random: Random(8), botCount: 3);
+
+      final seedsA = a.actors.map((x) => x.appearanceSeed).toList();
+      final seedsB = b.actors.map((x) => x.appearanceSeed).toList();
+      expect(seedsA, seedsB, reason: '같은 시드면 재현되어야 한다');
+
+      // 봇끼리 값이 전부 같으면 무작위 배정이 아니다.
+      final botSeeds = a.actors.where((x) => x.teamId != 0).map((x) => x.appearanceSeed);
+      expect(botSeeds.toSet().length, greaterThan(1));
+    });
+
     test('봇 수는 스폰 지점 수를 넘지 않는다', () {
       final world = GameWorld.stage(random: Random(3), botCount: 99);
       expect(world.actors.length, lessThanOrEqualTo(TileMap.spawnPoints.length));

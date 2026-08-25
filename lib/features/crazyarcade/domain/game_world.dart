@@ -40,6 +40,8 @@ class GameWorld {
         teamId: i == 0 ? 0 : 1, // 0번이 플레이어, 나머지는 적 팀
         x: col + 0.5,
         y: row + 0.5,
+        // 봇마다 생김새를 무작위로 배정한다. 같은 시드면 같은 조합이 나온다.
+        appearanceSeed: random.nextInt(1 << 20),
       ));
     }
     return GameWorld(map: map, actors: actors, random: random);

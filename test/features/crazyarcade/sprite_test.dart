@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -5,6 +6,8 @@ import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sudoku_app/features/crazyarcade/presentation/sprites/sprite_library.dart';
+import 'package:sudoku_app/features/crazyarcade/controller/crazy_arcade_controller.dart';
+import 'package:sudoku_app/features/crazyarcade/presentation/game_painter.dart';
 import 'package:sudoku_app/features/crazyarcade/presentation/sprites/sprite_sheet.dart';
 
 /// 테스트용 단색 이미지를 만든다.
@@ -184,6 +187,63 @@ void main() {
         expect(sheet.image.height % definition.rows, 0,
             reason: '${definition.path}: 세로가 rows로 나누어떨어지지 않는다');
       }
+    });
+  });
+
+  group('봇 생김새 배정', () {
+    /// 지정한 봇 그림들만 준비된 페인터를 만든다.
+    Future<GamePainter> painterWith(List<GameSprite> available) async {
+      final assets = <String, ByteData>{};
+      final manifest = <GameSprite, SpriteDefinition>{};
+      for (final sprite in available) {
+        final path = 'a/${sprite.name}.png';
+        assets[path] = await makePng(64, 64);
+        manifest[sprite] = SpriteDefinition(path: path, columns: 8, rows: 4);
+      }
+      final library =
+          await SpriteLibrary.load(bundle: _MemoryBundle(assets), manifest: manifest);
+      addTearDown(library.dispose);
+
+      final controller = CrazyArcadeController(random: Random(1));
+      addTearDown(controller.dispose);
+      return GamePainter(
+        controller: controller,
+        sprites: library,
+        repaint: controller.frames,
+      );
+    }
+
+    test('봇 그림이 여럿이면 배정 값에 따라 갈라진다', () async {
+      final painter =
+          await painterWith([GameSprite.bot1, GameSprite.bot2]);
+
+      final first = painter.botSheetFor(0);
+      final second = painter.botSheetFor(1);
+
+      expect(first, isNotNull);
+      expect(second, isNotNull);
+      expect(first, isNot(same(second)), reason: '서로 다른 봇이 섞여 나와야 한다');
+      expect(painter.botSheetFor(2), same(first), reason: '준비된 수만큼 되돌아 감긴다');
+    });
+
+    test('같은 액터는 늘 같은 그림을 쓴다', () async {
+      final painter = await painterWith([GameSprite.bot1, GameSprite.bot2]);
+      expect(painter.botSheetFor(7), same(painter.botSheetFor(7)));
+    });
+
+    test('봇 그림이 하나뿐이면 모두 그것을 쓴다', () async {
+      final painter = await painterWith([GameSprite.bot]);
+      expect(painter.botSheetFor(0), same(painter.botSheetFor(5)));
+    });
+
+    test('봇 그림이 없으면 플레이어 그림을 함께 쓴다', () async {
+      final painter = await painterWith([GameSprite.character]);
+      expect(painter.botSheetFor(3), isNotNull);
+    });
+
+    test('아무 그림도 없으면 기본 아트로 그린다', () async {
+      final painter = await painterWith([]);
+      expect(painter.botSheetFor(3), isNull);
     });
   });
 }
