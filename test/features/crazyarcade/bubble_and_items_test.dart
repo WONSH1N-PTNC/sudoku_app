@@ -159,6 +159,63 @@ void main() {
     });
   });
 
+  group('적과 접촉', () {
+    test('플레이어가 봇에 닿으면 탈락한다', () {
+      final world = worldWith(
+        spawns: [(col: 3, row: 3, team: 0), (col: 6, row: 3, team: 1)],
+        withDummyEnemy: false,
+      );
+      final player = world.actors[0];
+      final bot = world.actors[1];
+
+      // 플레이어가 봇 쪽으로 걸어간다.
+      advance(world, 1.5, intents: {0: const PlayerIntent(moveX: 1)});
+
+      expect(player.isDead, isTrue, reason: '봇에 닿으면 죽어야 한다');
+      expect(bot.isAlive, isTrue, reason: '봇은 닿아도 멀쩡하다');
+    });
+
+    test('봇이 다가와 닿아도 플레이어가 탈락한다', () {
+      final world = worldWith(
+        spawns: [(col: 3, row: 3, team: 0), (col: 6, row: 3, team: 1)],
+        withDummyEnemy: false,
+      );
+      final player = world.actors[0];
+
+      // 이번엔 봇이 움직인다.
+      advance(world, 1.5, intents: {1: const PlayerIntent(moveX: -1)});
+
+      expect(player.isDead, isTrue);
+    });
+
+    test('떨어져 있으면 아무 일도 없다', () {
+      final world = worldWith(
+        spawns: [(col: 3, row: 3, team: 0), (col: 9, row: 9, team: 1)],
+        withDummyEnemy: false,
+      );
+
+      advance(world, 1.0);
+
+      expect(world.actors[0].isAlive, isTrue);
+    });
+
+    test('같은 편끼리는 닿아도 괜찮다', () {
+      final world = worldWith(
+        spawns: [
+          (col: 3, row: 3, team: 0),
+          (col: 5, row: 3, team: 0),
+          (col: 12, row: 10, team: 1),
+        ],
+        withDummyEnemy: false,
+      );
+
+      advance(world, 1.0, intents: {0: const PlayerIntent(moveX: 1)});
+
+      expect(world.actors[0].isAlive, isTrue);
+      expect(world.actors[1].isAlive, isTrue);
+    });
+  });
+
   group('승패', () {
     test('적이 모두 탈락하면 승리', () {
       final world = worldWith(

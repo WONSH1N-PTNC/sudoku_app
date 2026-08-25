@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sudoku_app/features/crazyarcade/presentation/crazy_arcade_screen.dart';
+import 'package:sudoku_app/features/crazyarcade/presentation/sprites/sprite_library.dart';
 import 'package:sudoku_app/features/crazyarcade/presentation/virtual_pad.dart';
 
 /// 게임 루프가 계속 도므로 pumpAndSettle을 쓰면 안정화되지 않는다.
@@ -17,10 +18,20 @@ Future<void> pumpScreen(WidgetTester tester, Size surface) async {
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
+  // 이미지 디코딩은 진짜 비동기 작업이라 pump만으로는 진행되지 않는다.
+  // 화면을 띄우기 전에 미리 끝내 두면 화면은 곧바로 준비된 공유본을 받는다.
+  await tester.runAsync(() => SpriteLibrary.shared());
+
   await tester.pumpWidget(
     const MaterialApp(home: Scaffold(body: CrazyArcadeScreen())),
   );
-  await tester.pump();
+
+  // HUD는 좁은 화면에서 글자 라벨을 접으므로, 두 모드에 모두 있는 버튼으로 확인한다.
+  for (int i = 0; i < 20; i++) {
+    if (find.byTooltip('새 게임').evaluate().isNotEmpty) return;
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  fail('스프라이트 준비가 끝나지 않아 게임이 시작되지 않았습니다');
 }
 
 void main() {

@@ -11,6 +11,9 @@ import 'virtual_pad.dart';
 /// 이 값보다 화면이 좁으면 가상 패드를 띄운다 (휴대폰 · 태블릿).
 const double kVirtualPadBreakpoint = 600;
 
+/// 그림을 이만큼 기다려도 오지 않으면 기본 아트로 게임을 시작한다.
+const Duration kSpriteLoadTimeout = Duration(seconds: 5);
+
 /// 크레이지 아케이드 게임 화면.
 ///
 /// Ticker로 게임 루프를 돌리고, 렌더링은 [GamePainter]가 프레임 신호를 받아
@@ -34,6 +37,9 @@ class _CrazyArcadeScreenState extends State<CrazyArcadeScreen>
   /// 넣어 둔 그림. 없으면 비어 있고, 그 경우 코드로 그리는 기본 아트가 쓰인다.
   SpriteLibrary _sprites = const SpriteLibrary.empty();
 
+  /// 그림 준비가 끝났는지. 끝나기 전에는 게임을 시작하지 않는다.
+  bool _spritesReady = false;
+
   /// 위젯 테스트에서 실제 게임 상태를 확인하기 위한 통로
   @visibleForTesting
   CrazyArcadeController get controllerForTest => _controller;
@@ -44,19 +50,27 @@ class _CrazyArcadeScreenState extends State<CrazyArcadeScreen>
     _controller = CrazyArcadeController();
     _controller.inputs[CrazyArcadeController.playerId] = _input;
     _controller.result.addListener(_onResultChanged);
-    _ticker = createTicker(_onTick)..start();
+    _ticker = createTicker(_onTick);
     _loadSprites();
   }
 
-  /// 에셋을 읽어 온다. 파일이 없어도 정상이므로 게임을 막지 않고 뒤에서 진행한다.
+  /// 그림을 다 읽은 뒤에 게임을 시작한다.
+  ///
+  /// 먼저 시작해 버리면 그림이 도착할 때까지 1~2초 동안 기본 아트로 뛰어다니다가
+  /// 갑자기 캐릭터가 바뀐다. 파일이 없어도 곧바로 끝나므로 기다림이 길지 않다.
   Future<void> _loadSprites() async {
-    final loaded = await SpriteLibrary.load();
-    if (!mounted) {
-      loaded.dispose();
-      return;
-    }
-    if (loaded.isEmpty) return; // 기본 아트 그대로. 굳이 다시 그릴 필요가 없다.
-    setState(() => _sprites = loaded);
+    // 네트워크가 느려 그림이 오래 걸리면 마냥 기다리지 않고 기본 아트로 시작한다.
+    final loaded = await SpriteLibrary.shared().timeout(
+      kSpriteLoadTimeout,
+      onTimeout: () => const SpriteLibrary.empty(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _sprites = loaded;
+      _spritesReady = true;
+    });
+    _lastTick = Duration.zero;
+    _ticker.start();
   }
 
   @override
@@ -65,7 +79,7 @@ class _CrazyArcadeScreenState extends State<CrazyArcadeScreen>
     _ticker.dispose();
     _controller.result.removeListener(_onResultChanged);
     _controller.dispose();
-    _sprites.dispose();
+    // _sprites는 앱 전체가 공유하므로 여기서 버리지 않는다.
     super.dispose();
   }
 
@@ -137,6 +151,8 @@ class _CrazyArcadeScreenState extends State<CrazyArcadeScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (!_spritesReady) return const _LoadingBoard();
+
     final showPad =
         MediaQuery.of(context).size.shortestSide < kVirtualPadBreakpoint;
 
@@ -298,6 +314,31 @@ class _Stat extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 그림을 읽는 동안 잠깐 보여 주는 화면.
+///
+/// 돌아가는 표시 대신 가만히 있는 글자를 쓴다. 애니메이션이 있으면 위젯 테스트에서
+/// 화면이 멎기를 기다릴 수 없다.
+class _LoadingBoard extends StatelessWidget {
+  const _LoadingBoard();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.bubble_chart_rounded,
+              size: 48, color: colorScheme.primary.withValues(alpha: 0.6)),
+          const SizedBox(height: 12),
+          Text('준비 중…',
+              style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant)),
+        ],
+      ),
     );
   }
 }

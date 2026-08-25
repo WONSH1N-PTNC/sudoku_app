@@ -114,6 +114,18 @@ class SpriteLibrary {
   bool get isEmpty => _sheets.isEmpty;
   int get length => _sheets.length;
 
+  static Future<SpriteLibrary>? _sharedLoad;
+
+  /// 앱이 사는 동안 한 번만 읽어 공유한다.
+  ///
+  /// 게임 화면을 드나들 때마다 다시 읽으면 그때마다 그림이 준비될 때까지
+  /// 기본 아트가 잠깐 보인다. 공유본은 계속 쓰이므로 화면 쪽에서 dispose하지 않는다.
+  static Future<SpriteLibrary> shared() => _sharedLoad ??= load();
+
+  /// 테스트에서 공유본을 비운다.
+  @visibleForTesting
+  static void resetShared() => _sharedLoad = null;
+
   /// 목록에 적힌 그림을 읽는다.
   ///
   /// 없는 파일은 조용히 건너뛴다. 에셋을 아직 넣지 않은 상태가 정상이기 때문에

@@ -109,6 +109,7 @@ class GameWorld {
     _placeBalloons(intents);
     _pickUpItems();
     _applyExplosionDamage();
+    _applyContactDamage();
     _advanceBubbles(dt);
   }
 
@@ -326,6 +327,23 @@ class GameWorld {
       if (!actor.isAlive) continue;
       final hit = explosions.any((e) => e.covers(actor.col, actor.row));
       if (hit) actor.trapInBubble();
+    }
+  }
+
+  /// 적과 몸이 닿으면 플레이어 팀 액터가 탈락한다.
+  ///
+  /// 봇은 닿아도 멀쩡하다. 쫓아오는 봇 자체가 위협이 되어, 물풍선을 피하는 것만으로는
+  /// 살아남을 수 없게 만드는 규칙이다.
+  void _applyContactDamage() {
+    for (final actor in actors) {
+      if (!actor.isAlive || actor.teamId != playerTeamId) continue;
+      for (final enemy in actors) {
+        if (enemy.teamId == playerTeamId || !enemy.isAlive) continue;
+        if (_actorsOverlap(actor, enemy)) {
+          actor.eliminate();
+          break;
+        }
+      }
     }
   }
 
